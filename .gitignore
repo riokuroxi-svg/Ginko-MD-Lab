@@ -1,5 +1,4 @@
 node_modules/
-Sessions/
-tmp/
-*.log
-.DS_Store
+.env
+session/
+*.json.bak
