@@ -1,69 +1,100 @@
 import fetch from 'node-fetch'
 
+const MAX_REINTENTOS = 3
+const ESPERA_BASE_MS = 1500
+
+const dormir = ms => new Promise(r => setTimeout(r, ms))
+
+async function fetchConReintento(url, opciones = {}) {
+  let ultimoError
+  for (let intento = 1; intento <= MAX_REINTENTOS; intento++) {
+    try {
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 25000)
+      let res
+      try {
+        res = await fetch(url, { ...opciones, signal: ctrl.signal })
+      } finally {
+        clearTimeout(timer)
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      return res
+    } catch (e) {
+      ultimoError = e
+      console.log(`[tiktok] ⚠️ Intento ${intento} falló: ${e.message}`)
+      if (intento < MAX_REINTENTOS) await dormir(ESPERA_BASE_MS * intento)
+    }
+  }
+  throw ultimoError || new Error('Fallaron todos los intentos')
+}
+
 export default {
   command: ['tiktok', 'tt'],
   category: 'downloads',
   description: 'Descargar un video de TikTok.',
   run: async ({ msg, sock, args, usedPrefix, command }) => {
     if (!args.length) {
-      return msg.reply(`《✧》 Por favor, ingresa un término de búsqueda o enlace de TikTok.`)
+      return msg.reply(`《✧》 Por favor, ingresa un enlace de TikTok.\nEjemplo: *${usedPrefix}tiktok* https://vt.tiktok.com/xxxxx`)
     }
-    const text = args.join(" ")
-    const isUrl = /(?:https:?\/{2})?(?:w{3}|vm|vt|t)?\.?tiktok.com\/([^\s&]+)/gi.test(text)
-    const endpoint = isUrl ? `${global.APIs.Ginko.url}/dl/tiktok?url=${encodeURIComponent(text)}&key=${global.APIs.Ginko.key}` : `${global.APIs.Ginko.url}/search/tiktok?query=${encodeURIComponent(text)}&key=${global.APIs.Ginko.key}`
+    const text = args.join(" ").trim()
+    const isUrl = /(?:https?:?\/{2})?(?:w{3}|vm|vt|t)?\.?tiktok\.com\/[^\s&]+/i.test(text)
+    if (!isUrl) {
+      return msg.reply('《✧》 Por favor ingresa un enlace válido de TikTok.')
+    }
+
+    // lempi.lat usa apikey= y devuelve la estructura:
+    // { status, titulo, portada, autor:{usuario,nombre,avatar},
+    //   estadisticas:{vistas,likes,comentarios,...}, musica:{titulo,url}, datos:{url,tamaño,tipo,archivo} }
+    const endpoint = `${global.APIs.Ginko.url}/dl/tiktok?url=${encodeURIComponent(text)}&apikey=${global.APIs.Ginko.key}`
     try {
-      const res = await fetch(endpoint)
-      if (!res.ok) throw new Error(`El servidor respondió con ${res.status}`)
+      const res = await fetchConReintento(endpoint, { headers: { 'accept': 'application/json', 'user-agent': 'Mozilla/5.0' } })
       const json = await res.json()
-      if (!json.status) return msg.reply('《✧》 No se encontró contenido válido en TikTok.')
-      if (isUrl) {
-        const { title, duration, dl, author, stats, created_at, type } = json.data
-        if (!dl || (Array.isArray(dl) && dl.length === 0)) return msg.reply('《✧》 Enlace inválido o sin contenido descargable.')
-        const caption = `ㅤ۟∩　ׅ　★ ໌　ׅ　🅣𝗂𝗄𝖳𝗈𝗄 🅓ownload　ׄᰙ
+      if (!json.status || !json.datos?.url) {
+        return msg.reply('《✧》 No se pudo obtener el video de TikTok. Puede que el enlace esté privado o eliminado.')
+      }
 
-𖣣ֶㅤ֯⌗ ✎  ׄ ⬭ *Título:* ${title || 'Sin título'}
-𖣣ֶㅤ֯⌗ ꕥ  ׄ ⬭ *Autor:* ${author?.nickname || author?.unique_id || 'Desconocido'}
-𖣣ֶㅤ֯⌗ ⴵ  ׄ ⬭ *Duración:* ${duration || 'N/A'}
-𖣣ֶㅤ֯⌗ ❖  ׄ ⬭ *Likes:* ${(stats?.likes || 0).toLocaleString()}
-𖣣ֶㅤ֯⌗ ❀  ׄ ⬭ *Comentarios:* ${(stats?.comments || 0).toLocaleString()}
-𖣣ֶㅤ֯⌗ ✿  ׄ ⬭ *Vistas:* ${(stats?.views || stats?.plays || 0).toLocaleString()}
-𖣣ֶㅤ֯⌗ ☆  ׄ ⬭ *Compartidos:* ${(stats?.shares || 0).toLocaleString()}
-𖣣ֶㅤ֯⌗ ☁︎  ׄ ⬭ *Fecha:* ${created_at || 'N/A'}`.trim()
-        if (type === 'image') {
-          const medias = dl.map(url => ({ type: 'image', data: { url }, caption }))
-          await sock.sendAlbumMessage(msg.chat, medias, { quoted: msg })
-          const audioRes = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(text)}&hd=1`)
-          const audioJson = await audioRes.json()
-          const audioUrl = audioJson?.data?.play
-          if (audioUrl) {
-            await sock.sendMessage(msg.chat, { audio: { url: audioUrl }, mimetype: 'audio/mp4', fileName: 'tiktok_audio.mp4' }, { quoted: msg })
-          }
-        } else {
-          const videoUrl = Array.isArray(dl) ? dl[0] : dl
-          await sock.sendMessage(msg.chat, { video: { url: videoUrl }, caption }, { quoted: msg })
-        }
+      const { titulo, autor, duracion, estadisticas, datos, musica } = json
+      const authorName = autor?.nombre || autor?.usuario || 'Desconocido'
+      const authorUser = autor?.usuario ? '@' + autor.usuario : ''
+
+      const caption = `ㅤ۟∩　ׅ　★ ໌　ׅ　🅣𝗂𝗄𝖳𝗈𝗄 🅓ownload　ׄᰙ\n\n𖣣ֶㅤ֯⌗ ✎  ׄ ⬭ *Título:* ${titulo || 'Sin título'}\n𖣣ֶㅤ֯⌗ ꕥ  ׄ ⬭ *Autor:* ${authorName} ${authorUser}\n𖣣ֶㅤ֯⌗ ⴵ  ׄ ⬭ *Duración:* ${duracion ? duracion + 's' : 'N/A'}\n𖣣ֶㅤ֯⌗ ❖  ׄ ⬭ *Likes:* ${Number(estadisticas?.likes || 0).toLocaleString()}\n𖣣ֶㅤ֯⌗ ❀  ׄ ⬭ *Comentarios:* ${Number(estadisticas?.comentarios || 0).toLocaleString()}\n𖣣ֶㅤ֯⌗ ✿  ׄ ⬭ *Vistas:* ${Number(estadisticas?.vistas || estadisticas?.plays || 0).toLocaleString()}\n𖣣ֶㅤ֯⌗ ☆  ׄ ⬭ *Compartidos:* ${Number(estadisticas?.compartidos || 0).toLocaleString()}\n𖣣ֶㅤ֯⌗ ❒  ׄ ⬭ *Sonido:* ${musica?.titulo || 'audio original'}`.trim()
+
+      const mediaUrl = datos.url
+      const fileName = datos.archivo || 'tiktok.mp4'
+
+      if (json.portada) {
+        await sock.sendMessage(msg.chat, {
+          image: { url: json.portada },
+          caption
+        }, { quoted: msg })
       } else {
-        const validResults = json.data?.filter(v => v.dl)
-        if (!validResults || validResults.length < 2) {
-          return msg.reply('《✧》 Se requieren al menos 2 resultados válidos con contenido.')
-        }
-        const medias = validResults.filter(v => typeof v.dl === 'string' && v.dl.startsWith('http')).map(v => {
-            const caption = `ㅤ۟∩　ׅ　★ ໌　ׅ　🅣𝗂𝗄𝖳𝗈𝗄 🅓ownload　ׄᰙ
+        await msg.reply(caption)
+      }
 
-𖣣ֶㅤ֯⌗ ✎  ׄ ⬭ *Título:* ${v.title || 'Sin título'}
-𖣣ֶㅤ֯⌗ ꕥ  ׄ ⬭ *Autor:* ${v.author?.nickname || 'Desconocido'} ${v.author?.unique_id ? `@${v.author.unique_id}` : ''}
-𖣣ֶㅤ֯⌗ ⴵ  ׄ ⬭ *Duración:* ${v.duration || 'N/A'}
-𖣣ֶㅤ֯⌗ ❖  ׄ ⬭ *Likes:* ${(v.stats?.likes || 0).toLocaleString()}
-𖣣ֶㅤ֯⌗ ❀  ׄ ⬭ *Comentarios:* ${(v.stats?.comments || 0).toLocaleString()}
-𖣣ֶㅤ֯⌗ ✿  ׄ ⬭ *Vistas:* ${(v.stats?.views || 0).toLocaleString()}
-𖣣ֶㅤ֯⌗ ☆  ׄ ⬭ *Compartidos:* ${(v.stats?.shares || 0).toLocaleString()}
-𖣣ֶㅤ֯⌗ ❒  ׄ ⬭ *Audio:* ${v.music?.title || `[${v.author?.nickname || 'No disponible'}] original sound - ${v.author?.unique_id || 'unknown'}`}`.trim()
-            return { type: 'video', data: { url: v.dl }, caption }
-          }).slice(0, 10)
-        await sock.sendAlbumMessage(msg.chat, medias, { quoted: msg })
+      if (datos.tipo === 'image' || /\.(jpg|jpeg|png|webp)/i.test(fileName)) {
+        await sock.sendMessage(msg.chat, { image: { url: mediaUrl } }, { quoted: msg })
+      } else {
+        await sock.sendMessage(msg.chat, {
+          video: { url: mediaUrl },
+          mimetype: 'video/mp4',
+          fileName: fileName
+        }, { quoted: msg })
+      }
+
+      if (musica?.url) {
+        await sock.sendMessage(msg.chat, {
+          audio: { url: musica.url },
+          mimetype: 'audio/mpeg',
+          fileName: `${sanitize(titulo || 'tiktok_audio')}.mp3`
+        }, { quoted: msg })
       }
     } catch (e) {
-      await msg.reply(`> An unexpected error occurred while executing command *${usedPrefix + command}*. Please try again or contact support if the issue persists.\n> [Error: *${e.message}*]`)
+      console.error('Error en tiktok:', e)
+      await msg.reply(`> Error al descargar de TikTok después de ${MAX_REINTENTOS} intentos: ${e?.message || 'error desconocido'}.\n> Intenta de nuevo en unos segundos.`)
     }
   },
+}
+
+function sanitize(s = 'audio') {
+  return String(s).replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'audio'
 }

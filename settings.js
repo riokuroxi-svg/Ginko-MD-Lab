@@ -24,7 +24,8 @@ global.APIs = {
   ootaizumi: { url: "https://api.ootaizumi.web.id", key: null },
   delirius: { url: "https://api.delirius.store", key: null },
   zenzxz: { url: "https://api.zenzxz.my.id", key: null },
-  siputzx: { url: "https://app.siputzx.my.id", key: null }
+  siputzx: { url: "https://app.siputzx.my.id", key: null },
+  Ginko: { url: "https://api.lempi.lat", key: "montekey28" }
 };
 
 // Nombre predeterminado del bot
