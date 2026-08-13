@@ -127,10 +127,10 @@ downloads: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *DOWNLOAD* 𐦯╶͜─
 > Descargar un reel de Instagram.
 ꕤ *$prefixtiktok » $prefixtt* + <url|query>
 > Descargar un video de TikTok.
-ꕤ *$prefixtrailer* + <película|serie>
-> Buscar y enviar el tráiler oficial de una película o serie.
 ꕤ *$prefixtwitter » $prefixx* + <url>
 > Descargar un video/imagen de Twitter/X.
+ꕤ *$prefixdeezer » $prefixdzr* + <canción>
+> Buscar música en Deezer (preview 30s).
 ꕤ *$prefixytsearch » $prefixsearch » $prefixys* + <query>
 > Buscar videos de YouTube.
 ꕤ *$prefiximagen » $prefiximg » $prefiximage* + <query>
@@ -310,6 +310,18 @@ utils: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *UTILITIES* 𐦯╶͜─ׄ�
 > Programar un recordatorio.
 ꕤ *$prefixwastalk » $prefixinfowa* + <número|@usuario>
 > Ver información pública de un número en WhatsApp.
+ꕤ *$prefixclima » $prefixtiempo* + [ciudad]
+> Ver el clima actual de una ciudad.
+ꕤ *$prefixtts » $prefixvoz* + <texto>
+> Convertir texto a nota de voz en español.
+ꕤ *$prefixletra » $prefixlyrics* + <artista>/<canción>
+> Buscar la letra de una canción.
+ꕤ *$prefixbtc » $prefixcrypto* + [moneda]
+> Precio de criptomonedas (BTC, ETH, SOL...).
+ꕤ *$prefixcarbon » $prefixcodigoimg* <tema> + <código>
+> Convertir código en una imagen bonita.
+ꕤ *$prefixgh » $prefixgithubstalk* + <usuario>
+> Ver información de un usuario de GitHub.
 ╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ`,
 grupo: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *GROUPS* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜
 > ✐ Comandos para administradores de grupos.
