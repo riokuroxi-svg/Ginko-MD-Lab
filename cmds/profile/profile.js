@@ -62,7 +62,7 @@ export default {
       }
     }    
     const haremCount = ownedIDs.length;
-    const perfil = await sock.profilePictureUrl(userId, 'image').catch((_) => 'defaultAvatar()');    
+    const perfil = await sock.profilePictureUrl(userId, 'image').catch(() => defaultAvatar());
     const allUsers = db.getUser() || [];
     const users = Array.isArray(allUsers) ? allUsers.map(u => ({ ...u, jid: u.id })) : [];
     const sortedLevel = users.sort((a, b) => (b.level || 0) - (a.level || 0));    

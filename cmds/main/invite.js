@@ -38,7 +38,7 @@ export default {
     }
     const isOficialBot = botId === ((global.sock?.user?.id?.split(':')[0] ?? null) && ((global.sock?.user?.id?.split(':')[0] ?? null) && (global.sock.user.id.split(':')[0] + '@s.whatsapp.net')));
     const botType = isOficialBot ? 'Principal/Owner' : 'Sub Bot';
-    const pp = await sock.profilePictureUrl(msg.sender, 'image').catch(() => 'defaultAvatar()');
+    const pp = await sock.profilePictureUrl(msg.sender, 'image').catch(() => defaultAvatar());
     const userName = user?.name || 'Usuario';
     const sugg = `❀ 𝗦𝗢𝗟𝗜𝗖𝗜𝗧𝗨𝗗 𝗥𝗘𝗖𝗜𝗕𝗜𝗗𝗔
     
