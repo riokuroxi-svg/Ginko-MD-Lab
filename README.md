@@ -1,202 +1,173 @@
+<div align="center">
+
+<img src="https://capsule-render.vercel.app/api?type=waving&height=220&color=gradient&customColorList=13,21,27,30&text=🧪%20GINKO-MD%20LAB%20🧪&fontSize=52&fontColor=ffffff&animation=fadeIn&fontAlignY=38&desc=Laboratorio%20de%20pruebas%20y%20nuevas%20funcionalidades%20para%20Ginko-MD&descSize=17&descAlignY=60" width="100%"/>
+
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=700&size=26&duration=2800&pause=600&color=60A5FA&center=true&vCenter=true&width=640&lines=🧪+Zona+de+experimentos+🧪;🚧+NO+usar+en+producción;🌿+Todo+lo+nuevo+se+prueba+antes;✅+Se+fusiona+al+estable+al+funcionar" alt="Typing SVG"/>
+
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=20&duration=3200&pause=800&color=FBBF24&center=true&vCenter=true&width=640&lines=⚗️+Comandos+nuevos+en+prueba;🐛+Arreglos+y+revisiones;🏷️+Checkpoints+con+git+tag" alt="Typing SVG"/>
+
+<br/>
+
+<img src="https://img.shields.io/badge/Status-Laboratorio-FBBF24?style=for-the-badge"/>
+<img src="https://img.shields.io/badge/WhatsApp-Bot-25D366?style=for-the-badge&logo=whatsapp&logoColor=white"/>
+<img src="https://img.shields.io/badge/Node.js-20+-339933?style=for-the-badge&logo=nodedotjs&logoColor=white"/>
+<img src="https://img.shields.io/badge/Baileys-Multi%20Device-25D366?style=for-the-badge"/>
+<img src="https://img.shields.io/badge/Inestable-Pruebas-F87171?style=for-the-badge"/>
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a139a6edaec5c.gif" width="100%"/>
+
+</div>
+
+## 🧪 ¿Qué es Ginko-MD-Lab?
+
 <p align="center">
-<img src="./assets/bocchi-banner.png" alt="Bocchi banner" width="100%"/>
+  <img src="https://raw.githubusercontent.com/riokuroxi-svg/Ginko-MD-Lab/main/media/menu.jpg" alt="Menú de prueba (Bocchi)" width="620"/>
 </p>
 
-<h1 align="center">🧪 Ginko-MD-Lab</h1>
-<h3 align="center">Repositorio experimental — NO usar en producción</h3>
+> ⚗️ **Ginko-MD-Lab** es la **rama de pruebas y desarrollo** de Ginko-MD. Aquí es donde se crean y prueban comandos nuevos antes de pasarlos al repositorio estable.
+>
+> Si buscas la versión lista para usar, ve al repositorio principal 👇
 
 <p align="center">
-<img src="https://img.shields.io/badge/status-laboratorio-9333ea?style=for-the-badge">
-<img src="https://img.shields.io/badge/Base-Ginko--MD--v1.2--reintentos-e11d48?style=for-the-badge">
-<img src="https://img.shields.io/badge/Node.js-22+-339933?style=for-the-badge&logo=nodedotjs">
+  <a href="https://github.com/riokuroxi-svg/Ginko-MD">
+    <img src="https://img.shields.io/badge/🌿%20Ir%20al%20repo%20ESTABLE%20(Ginko--MD)-25D366?style=for-the-badge&logo=whatsapp&logoColor=white"/>
+  </a>
 </p>
 
-<p align="center">
-  <sub>🍁 IG: <a href="https://instagram.com/__ikg.05">@__ikg.05</a></sub>
-</p>
+### 📌 ¿Para quién es este repo?
 
----
+| ✅ Sí usa Lab | ❌ No usa Lab |
+|:---|:---|
+| Quieres probar las funciones más nuevas | Quieres algo que no se rompa |
+| Te gusta ayudar a reportar bugs | No quieres lidiar con errores |
+| Quieres aportar ideas/código | Es tu primera vez instalando el bot |
 
-## ⚠️ Aviso importante
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a139a6edaec5c.gif" width="100%"/>
 
-Este repositorio es un **fork/laboratorio** de [Ginko-MD](https://github.com/riokuroxi-svg/Ginko-MD) donde se prueban nuevas características ANTES de meterlas al bot estable.
+## 📦 Instalación en Termux (Lab)
 
-- **Si quieres el bot que sí funciona**, usa el repo principal: 👉 https://github.com/riokuroxi-svg/Ginko-MD
-- Aquí se rompen cosas a propósito. Puede que los comandos no funcionen, que haya errores en consola, que se caiga a medias.
-- El punto de partida (commit inicial) es exactamente **`v1.2-reintentos`** del repo estable (el .play funciona con reintentos automáticos).
-- El repo original **nunca se toca** desde aquí.
-
----
-
-## 🧪 Qué se está probando en este Lab
-
-- [ ] Botones interactivos de Audio/Video después de una búsqueda de YouTube
-
-*(Se irá actualizando según avance)*
-
----
-
-## 🚀 Instalación en Termux (Android)
-**Copia y pega estos comandos UNO POR UNO en Termux, no te saltes ninguno:**
-
-#### Paso 1: Dar permiso de almacenamiento
-```bash
-termux-setup-storage
-```
-*Acepta el permiso cuando aparezca la ventana.*
-
-#### Paso 2: Actualizar paquetes e instalar dependencias del sistema
-```bash
-apt update && apt upgrade -y
-```
+Es igual que el estable pero clonando este repo:
 
 ```bash
-pkg install -y git nodejs-lts ffmpeg imagemagick
-```
-*Si te pregunta algo durante la instalación, escribe `y` y presiona ENTER.*
-
-#### Paso 3: Clonar este repositorio (Lab)
-```bash
-git clone https://github.com/riokuroxi-svg/Ginko-MD-Lab.git
-```
-
-#### Paso 4: Entrar a la carpeta del bot
-```bash
+pkg update && pkg upgrade -y
+pkg install -y git nodejs python ffmpeg
+git clone https://github.com/riokuroxi-svg/Ginko-MD-Lab
 cd Ginko-MD-Lab
-```
-
-#### Paso 5: Instalar dependencias de Node.js
-```bash
-npm install --omit=optional --no-audit --no-fund
-```
-*Espera que termine, puede tardar de 2 a 5 minutos.*
-
-#### Paso 6: Configurar tu número (dueño del bot)
-Abre el archivo de configuración:
-```bash
-nano settings.js
-```
-Busca la línea que dice tu número de owner y cámbialo por tu número de teléfono (solo dígitos, sin `+`, sin espacios, con código de país). Por ejemplo, si eres de México es `52` seguido de tu número.
-
-Guarda el archivo:
-1. Presiona `Ctrl + O`
-2. Presiona `ENTER`
-3. Presiona `Ctrl + X`
-
-#### Paso 7: Arrancar el bot por primera vez
-```bash
-npm start
-```
-- Cuando aparezca el menú de opciones, elige la opción `2` para usar código de 8 dígitos.
-- Ingresa el número del bot con código de país cuando te lo pida.
-- Copia el código de vinculación que aparece en pantalla y ponlo en WhatsApp:
-  > Ajustes → Dispositivos vinculados → Vincular un dispositivo → Vincular con número de teléfono
-
-✅ ¡Listo! El bot estará conectado.
-
-> ⚠️ Si ya tienes el Ginko-MD estable instalado, **no vincules el mismo número de bot** en el Lab para no mezclar sesiones.
-
----
-
-### ☁️ Método 2: VPS Linux (Ubuntu/Debian)
-```bash
-apt update && apt upgrade -y
-apt install -y git nodejs npm ffmpeg imagemagick
-git clone https://github.com/riokuroxi-svg/Ginko-MD-Lab.git
-cd Ginko-MD-Lab
-npm install --omit=optional --no-audit --no-fund
-nano settings.js
-npm start
-```
-
----
-
-### 🟢 Dejar el bot corriendo en segundo plano (PM2)
-Para que no se apague cuando cierres Termux o la terminal:
-```bash
-npm install -g pm2
-termux-wake-lock
-pm2 start index.js --name ginko-lab
-pm2 save
-```
-
-| Acción | Comando |
-|---|---|
-| Ver logs en tiempo real | `pm2 logs ginko-lab` |
-| Parar el bot | `pm2 stop ginko-lab` |
-| Reiniciar el bot | `pm2 restart ginko-lab` |
-| Eliminar el proceso | `pm2 delete ginko-lab` |
-| Ver estado | `pm2 status` |
-
----
-
-## 🔄 Solución de problemas comunes
-
-### Si se cortó internet o se apagó el bot
-```bash
-cd ~/Ginko-MD-Lab && npm start
-```
-
-### Volver a vincular de cero
-```bash
-cd ~/Ginko-MD-Lab
-rm -rf Sessions/Owner
-npm start
-```
-
-### Error de dependencias rotas
-```bash
-cd ~/Ginko-MD-Lab
-rm -rf node_modules package-lock.json
-npm install --omit=optional --no-audit --no-fund
-```
-
-### Volver al punto base (deshacer todos los experimentos)
-```bash
-cd ~/Ginko-MD-Lab
-git reset --hard lab-base
 npm install
 npm start
 ```
 
----
+Escanea el QR y listo. Eso sí: **puede romperse en cualquier momento** mientras esté en pruebas.
 
-## 📝 Prefijo y comandos básicos
-El prefijo por defecto es el **punto** (`.`). Comandos que funcionan desde el día 1:
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a139a6edaec5c.gif" width="100%"/>
 
-| Comando | Qué hace |
-|---|---|
-| `.play <canción>` | Descarga música de YouTube (con reintentos) |
-| `.mp4 <video>` | Descarga video de YouTube |
-| `.menu` | Lista completa de comandos |
-| `.sticker` | Convierte imagen/video en sticker al responderla |
-| `.ping` | Velocidad de respuesta |
+## 🏷️ Tags de checkpoint (versiones)
 
----
-
----
-
-## 🔄 Volver a un punto seguro
+Cada cambio importante tiene un tag para poder volver atrás si algo se rompe:
 
 ```bash
-git reset --hard lab-base   # estado inicial idéntico a v1.2-reintentos
-npm install
-npm start
+# Ver todos los tags
+git tag
+
+# Volver a una versión anterior (ejemplo: v1.19, que fue la que funcionó el menú)
+git reset --hard v1.19
 ```
 
----
+### 📜 Historial reciente
 
-## 📁 Relación con el repo principal
+| Tag | Estado |
+|:---|:---|
+| `v2.0-menu-bocchi-tts-bloques1-4` | Menú con imagen (Bocchi) + botón canal + TTS Dalia + bloques 1-4 ✅ |
+| `v1.25` | v1.19 + quitado enlace repetido de canal del texto ✅ |
+| `v1.19` | Menú con imagen + botón "Ver canal" **(funcional comprobado)** ✅ |
+| `v1.20` – `v1.24` | Intentos con externalAdReply (tarjeta/linkPreview) — **fallaron, descartados** ❌ |
+| `v1.18` | Antes de botones nativos del menú |
 
-| Repo | URL | Estado | Uso |
-|---|---|---|---|
-| Ginko-MD | https://github.com/riokuroxi-svg/Ginko-MD | ✅ Estable | Día a día |
-| Ginko-MD-Lab | https://github.com/riokuroxi-svg/Ginko-MD-Lab | 🧪 Experimental | Pruebas |
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a139a6edaec5c.gif" width="100%"/>
 
-El commit inicial de este Lab está tageado como `lab-base` y coincide exactamente con `v1.2-reintentos` del repo estable. Cualquier experimento nuevo va en commits posteriores.
+## ⚙️ ¿Qué se está probando aquí?
 
----
+Lo que ya funciona y está en camino al repo estable:
+
+| 🧪 Función | Estado |
+|:---|:---|
+| 🖼️ Menú con imagen (Bocchi) + botón nativo de canal | ✅ Listo (ya en estable) |
+| 🔊 TTS con voz femenina Dalia (Edge-TTS) como PTT | ✅ Listo (ya en estable) |
+| 🧠 IA Gemini con memoria por chat + imágenes | ✅ Listo (ya en estable) |
+| 📊 Encuestas nativas `.encuesta` | ✅ Listo (ya en estable) |
+| 🎌 `.anime` con AniList | ✅ Listo (ya en estable) |
+| 🔗 `.qrcode`, `.acortar`, `.morse`, `.recordar`, `.wastalk` | ✅ Listo (ya en estable) |
+| 😄 Comandos de diversión (chiste, 8ball, ship, dado...) | ✅ Listo (ya en estable) |
+| 🎵 `.letra`, `.deezer`, `.btc`, `.carbon`, `.gh` | ✅ Listo (ya en estable) |
+| 🎙️ Efectos de voz con ffmpeg nativo (robot, eco, veloz) | 🚧 Planeado |
+| 🎨 Más comandos de stickers | 🚧 Planeado |
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a139a6edaec5c.gif" width="100%"/>
+
+## 🔄 Flujo de trabajo
+
+```
+1. Idea o bug nuevo
+   ↓
+2. Se prueba AQUÍ (Ginko-MD-Lab) con tags de checkpoint
+   ↓
+3. Se verifica en Termux real (sin errores de envío, sin crashes)
+   ↓
+4. El usuario confirma que funciona
+   ↓
+5. Se fusiona al repo ESTABLE (Ginko-MD) 🚀
+```
+
+### ⚠️ Reglas importantes del Lab
+
+- 🚫 **Nada se pasa al estable sin confirmación** del usuario después de probar en Termux real.
+- 🏷️ Siempre se crea un **tag `vX.Y`** antes de un cambio grande, para poder volver atrás (`git reset --hard <tag>`).
+- 📱 **ffmpeg-static NO funciona** en Termux/Android: se usa el ffmpeg NATIVO de Termux (`pkg install ffmpeg`).
+- 📛 El menú con `externalAdReply`/`linkPreview` está **descartado** por ahora: causaba que WhatsApp rechazara el mensaje silenciosamente en Termux.
+- 🔑 El token de GitHub que se usa para push es temporal, se revoca al finalizar la sesión.
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a139a6edaec5c.gif" width="100%"/>
+
+## 📣 Enlaces
 
 <p align="center">
-  <sub>🧪 Ginko-MD-Lab — 2026</sub>
+  <a href="https://whatsapp.com/channel/0029VbDVFpSGJP89hfZUe522">
+    <img src="https://img.shields.io/badge/📣%20Canal%20de%20WhatsApp-25D366?style=for-the-badge&logo=whatsapp&logoColor=white"/>
+  </a>
+  <a href="https://www.instagram.com/__ikg.05">
+    <img src="https://img.shields.io/badge/📸%20Instagram%20del%20creador-E4405F?style=for-the-badge&logo=instagram&logoColor=white"/>
+  </a>
+  <a href="https://github.com/riokuroxi-svg/Ginko-MD">
+    <img src="https://img.shields.io/badge/🌿%20Repo%20ESTABLE-181717?style=for-the-badge&logo=github&logoColor=white"/>
+  </a>
+  <a href="https://github.com/riokuroxi-svg/Ginko-MD-Lab">
+    <img src="https://img.shields.io/badge/🧪%20Este%20repo%20(Lab)-181717?style=for-the-badge&logo=github&logoColor=white"/>
+  </a>
 </p>
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a139a6edaec5c.gif" width="100%"/>
+
+## ⭐ Créditos
+
+- 🌿 **Creador:** [riokuroxi-svg](https://github.com/riokuroxi-svg) 🇲🇽
+- 🤖 **Librería:** [@whiskeysockets/baileys](https://github.com/WhiskeySockets/Baileys)
+- 🧠 **IA:** Google Gemini
+- 🔊 **TTS:** Microsoft Edge-TTS
+- 🎨 **Inspiración del README:** [La Suki Bot](https://github.com/russellxz/LASUKIBOT)
+
+<div align="center">
+
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=700&size=22&duration=3000&pause=800&color=60A5FA&center=true&vCenter=true&width=640&lines=🧪+GINKO-MD+LAB+🧪;Todo%20lo%20nuevo+se+prueba+aqu%C3%AD;primero+antes+de+salir+al+estable+%F0%9F%9A%80" alt="Typing SVG"/>
+
+<br/>
+
+<a href="https://github.com/riokuroxi-svg/Ginko-MD-Lab/stargazers">
+  <img src="https://img.shields.io/github/stars/riokuroxi-svg/Ginko-MD-Lab?style=social"/>
+</a>
+<a href="https://github.com/riokuroxi-svg/Ginko-MD-Lab/forks">
+  <img src="https://img.shields.io/github/forks/riokuroxi-svg/Ginko-MD-Lab?style=social"/>
+</a>
+
+<img src="https://capsule-render.vercel.app/api?type=waving&height=140&color=gradient&customColorList=13,21,27,30&section=footer" width="100%"/>
+
+</div>
