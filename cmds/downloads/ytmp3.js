@@ -381,40 +381,32 @@ const cmd = {
           `🔵 O bien *cita este mensaje* y escribe:\n` +
           `   *1* o *audio* / *2* o *video* / *3* o *videodoc* / *4* o *audiodoc*`
 
-      // Secciones del menú (audio + video)
-      const seccionesMenu = [
+      // Botones rápidos directos (formato buttonsMessage con type:1 = quick_reply).
+      // Dos botones visibles directamente debajo de la imagen: Audio MP3 y Video MP4.
+      // Las opciones de documento y ayuda extra siguen disponibles citando el
+      // mensaje o por reacciones. Usamos 2 botones para máxima compatibilidad.
+      const botonesRespuesta = usarBotones ? [
         {
-          title: '🎵 AUDIO',
-          rows: [
-            { title: '🎵 Audio MP3', description: 'Audio que se reproduce en WhatsApp', rowId: '__ginko_pa' },
-            { title: '📄 Audio como documento', description: 'Archivo MP3 descargable', rowId: '__ginko_pad' }
-          ]
+          buttonId: '__ginko_pa',
+          buttonText: { displayText: '🎵 Audio MP3' },
+          type: 1
         },
         {
-          title: '🎬 VIDEO',
-          rows: [
-            { title: '🎬 Video MP4', description: 'Video que se reproduce en WhatsApp', rowId: '__ginko_pv' },
-            { title: '📁 Video como documento', description: 'Archivo MP4 descargable', rowId: '__ginko_pvd' }
-          ]
+          buttonId: '__ginko_pv',
+          buttonText: { displayText: '🎬 Video MP4' },
+          type: 1
         }
-      ]
+      ] : []
 
-      // Payload: cuando hay miniatura y botones activos, usamos nativeFlow
-      // directamente en el nivel superior. La API declarativa de WaSocket
-      // recibe {text, sections: [...]} y la convierte por dentro a un
-      // nativeFlowMessage con name='single_select' y paramsJson — este es
-      // el formato que SÍ abre el menú desplegable en todos los clientes.
-      // (El intento anterior con {buttons:[{text,sections}]} generaba un
-      // buttonsMessage legado que solo abre el menú en algunos clientes.)
+      // Payload: imagen + caption + botones rápidos. headerType=4 = imagen.
+      // footerText se usa en el formato buttonsMessage (no "footer").
       const payload = usarBotones && thumbnail
         ? {
             image: { url: thumbnail },
             caption,
-            footer: '❦ Ginko-MD · toca un botón ❦',
-            nativeFlow: [{
-              text: '📥 Menú de descarga',
-              sections: seccionesMenu
-            }]
+            footerText: '❦ Ginko-MD · toca un botón',
+            buttons: botonesRespuesta,
+            headerType: 4
           }
         : thumbnail
           ? { image: { url: thumbnail }, caption }
@@ -425,22 +417,10 @@ const cmd = {
       try {
         card = await sock.sendMessage(msg.chat, payload, opts)
       } catch (e) {
-        // Fallback 1: si falló por nativeFlow, probar con listMessage
-        try {
-          card = await sock.sendMessage(msg.chat, {
-            image: thumbnail ? { url: thumbnail } : undefined,
-            caption,
-            footer: '❦ Ginko-MD',
-            title: '📥 Menú de descarga',
-            buttonText: 'Ver opciones',
-            sections: seccionesMenu
-          }, opts)
-        } catch (e2) {
-          // Fallback 2: solo tarjeta sin botones, usar reacciones/citas
-          card = await sock.sendMessage(msg.chat, thumbnail ? { image: { url: thumbnail }, caption } : { text: caption }, opts).catch(async () =>
-            await sock.sendMessage(msg.chat, { text: caption }, opts)
-          )
-        }
+        // Si los botones fallan, mandar solo la imagen sin botones (funciona por reacciones/citas)
+        card = await sock.sendMessage(msg.chat, thumbnail ? { image: { url: thumbnail }, caption } : { text: caption }, opts).catch(async () =>
+          await sock.sendMessage(msg.chat, { text: caption }, opts)
+        )
       }
 
       if (!card?.key?.id) return msg.reply('❌ No se pudo enviar la tarjeta de opciones.')
