@@ -1,6 +1,6 @@
 import db from '#db';
 export default {
-  command: ['shop', 'tienda', 'buy', 'comprar', 'inventory', 'inv', 'inventario'],
+  command: ['shop', 'tienda', 'buy', 'comprar', 'inventory', 'inv', 'inventario', 'bolsa'],
   category: 'economy',
   description: 'Ver la tienda del bot.',
   run: async ({ msg, sock, args, usedPrefix, command, text }) => {
