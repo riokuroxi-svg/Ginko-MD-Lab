@@ -123,6 +123,8 @@ downloads: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *DOWNLOAD* 𐦯╶͜─
 > Buscar y descargar imagenes de Pinterest.
 ꕤ *$prefixplay2 » $prefixmp4 » $prefixplayvideo » $prefixytvideo » $prefixytmp4* + <url|query>
 > Descargar un vídeo de YouTube.
+ꕤ *$prefixmanga » $prefixmangadex* + <búsqueda|caps|leer|info>
+> Buscar y leer mangas desde MangaDex (imágenes).
 ꕤ *$prefixreel » $prefixig » $prefixinstagram* + <url>
 > Descargar un reel de Instagram.
 ꕤ *$prefixtiktok » $prefixtt* + <url|query>
@@ -300,6 +302,8 @@ utils: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *UTILITIES* 𐦯╶͜─ׄ�
 > Ver información de grupos/canales de WhatsApp.
 ꕤ *$prefixread » $prefixreadviewonce* + <cite / image|video>
 > Convertir imagen/video de una vista a contenido.
+ꕤ *$prefixencuesta » $prefixpoll* + <pregunta|opción1|opción2...>
+> Crear una encuesta interactiva nativa de WhatsApp.
 ꕤ *$prefixqrcode » $prefixqrgen » $prefixmakeqr* + <texto|url>
 > Generar un código QR.
 ꕤ *$prefixacortar » $prefixshorturl* + <url>
@@ -310,8 +314,6 @@ utils: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *UTILITIES* 𐦯╶͜─ׄ�
 > Programar un recordatorio.
 ꕤ *$prefixwastalk » $prefixinfowa* + <número|@usuario>
 > Ver información pública de un número en WhatsApp.
-ꕤ *$prefixclima » $prefixtiempo* + [ciudad]
-> Ver el clima actual de una ciudad.
 ꕤ *$prefixtts » $prefixvoz* + <texto>
 > Convertir texto a nota de voz en español.
 ꕤ *$prefixletra » $prefixlyrics* + <artista>/<canción>
@@ -402,7 +404,11 @@ nsfw: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *NSFW* 𐦯╶͜─ׄ͜─ׄ
 > Buscar imagenes en Rule34.
 ╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ`,
 anime: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *ANIME* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜
-> ✐ Comandos de reacciones de Anime.
+> ✐ Comandos de Anime, reacciones y búsquedas.
+ꕤ *$prefixanime » $prefixanibusc* + <nombre>
+> Buscar información de un anime (AniList).
+ꕤ *$prefixserieinfo » $prefixainfo* + <nombre>
+> Ver info de series del gacha.
 ꕤ *$prefixwaifu » $prefixneko*
 > Buscar una waifu aleatoria.
 ꕤ *$prefixppcouple » $prefixppcp*
