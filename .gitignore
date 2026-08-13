@@ -4,3 +4,4 @@ session/
 Sessions/
 tmp/
 audit/api-results.json
+config.private.js

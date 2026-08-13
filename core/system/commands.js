@@ -257,8 +257,8 @@ utils: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *UTILITIES* 𐦯╶͜─ׄ�
 > Enviar una sugerencia a los moderadores.
 ꕤ *$prefixinvitar » $prefixinvite* + <link>
 > Invitar el bot a un grupo.
-ꕤ *$prefixia » $prefixchatgpt* + <query>
-> Realizar peticiones a chatgpt.
+ꕤ *$prefixai » $prefixia » $prefixchatgpt » $prefixgemini* + <query>
+> Chatear con la IA (Gemini con memoria). Usa *$prefixai reset* para borrar memoria.
 ꕤ *$prefixgetpic » $prefixpfp* + <mention>
 > Ver la foto de perfil de un usuario.
 ꕤ *$prefixtoimage » $prefixtoimg* + <cite / sticker>
