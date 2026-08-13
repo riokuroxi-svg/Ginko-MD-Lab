@@ -15,6 +15,7 @@ import "#system/database";
 import { startSubBot } from './cmds/socket/subs.js';
 import db from '#db';
 import NodeCache from "node-cache";
+import { resolveChannel } from '#lib/channel';
 
 const log = {
   info: (msg) => console.log(chalk.bgBlue.white.bold(`INFO`), chalk.white(msg)),
@@ -293,6 +294,8 @@ export async function startBot() {
       if (!botReady) {
         botReady = true;
         warmupGroups(sock);
+        // Resolver JID del canal oficial para mostrar el botón "Ver canal"
+        resolveChannel(sock, db).catch(()=>{});
       }
     }
     if (isNewLogin) log.info("Nuevo dispositivo detectado");

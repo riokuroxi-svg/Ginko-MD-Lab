@@ -33,6 +33,15 @@ export default {
       const canalLink = (global.links && global.links.channel) || '';
     const instagram = (global.links && global.links.instagram) || '';
 
+    // Resolver JID del canal en background
+    const { resolveChannel, getChannelInfo } = await import('#lib/channel');
+    resolveChannel(sock, db).catch(()=>{});
+    const chInfo = getChannelInfo();
+    let dbCanalId = chInfo.id || botSettings.newsletter_id || '';
+    let dbCanalName = (chInfo.resolved ? chInfo.name : '') || botSettings.nameid || '';
+    if (dbCanalId && dbCanalId.includes('120363401404146384')) { dbCanalId = ''; dbCanalName = ''; }
+    if (dbCanalName && /yuki|ყµҡเ/i.test(dbCanalName)) { dbCanalId = ''; dbCanalName = ''; }
+
     try {
       const lines = [`✐ Información del bot *${botname}!*`, '',
         `✿ *Nombre Corto ›* ${namebot}`,
@@ -50,8 +59,6 @@ export default {
       if (instagram) lines.push(`> \`Instagram:\` ${instagram}`);
       const message = lines.join('\n').trim();
 
-      const dbCanalId = botSettings.newsletter_id || '';
-      const dbCanalName = botSettings.nameid || '';
       const contextInfo = (dbCanalId && dbCanalName) ? {
         isForwarded: true,
         forwardedNewsletterMessageInfo: {

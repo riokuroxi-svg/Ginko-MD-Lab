@@ -50,11 +50,18 @@ export default {
       const channelLink = (global.links && global.links.channel) || '';
       const instagram = (global.links && global.links.instagram) || '';
 
-      // El "botón de canal" (reenviado desde newsletter) SOLO aparece si el admin lo
-      // configuró con .setchannel, que hace newsletterMetadata() para obtener un JID válido.
-      // Si ponemos un JID no verificado, WhatsApp rechaza el mensaje completo.
-      const canalId = botSettings.newsletter_id || '';
-      const canalName = botSettings.nameid || '';
+      // El "botón de canal" (reenviado desde newsletter) aparece si el JID
+      // ya fue resuelto (al conectar el bot llama a resolveChannel que hace
+      // newsletterMetadata(invite, code)). Si no está resuelto aún, intentamos
+      // resolverlo en background pero NO lo usamos para no romper el envío.
+      const { resolveChannel, getChannelInfo } = await import('#lib/channel');
+      resolveChannel(sock, db).catch(()=>{});
+      const chInfo = getChannelInfo();
+      let canalId = chInfo.id || botSettings.newsletter_id || '';
+      let canalName = (chInfo.resolved ? chInfo.name : '') || botSettings.nameid || '';
+      // Si el JID en la DB es el de yuki (viejo) lo ignoramos
+      if (canalId && canalId.includes('120363401404146384')) { canalId = ''; canalName = ''; }
+      if (canalName && /yuki|ყµҡเ/i.test(canalName)) { canalName = ''; canalId = ''; }
 
       const isOficialBot = global.sock?.user?.id && botId === (global.sock.user.id.split(':')[0] + '@s.whatsapp.net');
       const botType = isOficialBot ? 'Principal/Owner' : 'Sub Bot';

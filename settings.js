@@ -12,12 +12,14 @@ global.owner = ['525574370309'];
 global.dev = "🍁 Ginko-MD";
 global.links = {
   channel: "https://whatsapp.com/channel/0029VbDVFpSGJP89hfZUe522",
-  channelId: "0029VbDVFpSGJP89hfZUe522@newsletter",
+  channelCode: "0029VbDVFpSGJP89hfZUe522",
   channelName: "Ginko-MD · Canal oficial",
   instagram: "https://www.instagram.com/__ikg.05",
   github: "https://github.com/riokuroxi-svg/Ginko-MD",
   gmail: ""
 }
+// JID resuelto del canal (se llena automáticamente al conectar con newsletterMetadata)
+global.channelJid = { id: '', name: global.links.channelName, resolved: false };
 global.my = {
   ch1: ''
 };
