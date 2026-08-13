@@ -50,6 +50,23 @@ function esIphone(m) {
 
 function dormir(ms) { return new Promise(r => setTimeout(r, ms)) }
 
+/**
+ * Envuelve una promesa con un tiempo límite. Si no resuelve en "ms" ms,
+ * la rechaza con un error descriptivo. Se usa para ponerle timeout a
+ * yts() (yt-search no trae AbortController propio) y a cualquier otra
+ * operación que pudiera colgarse.
+ */
+function conTiempo(promesa, ms, etiqueta) {
+  let timer
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`Tiempo de espera agotado (${Math.round(ms / 1000)}s): ${etiqueta}`)),
+      ms
+    )
+  })
+  return Promise.race([promesa, timeout]).finally(() => clearTimeout(timer))
+}
+
 function sanitizeFilename(name = 'audio') {
   return String(name)
     .replace(/\.(mp3|mp4|mkv|webm|mov|avi|m4a)$/i, '')
@@ -101,16 +118,36 @@ const getVideoId = (text = '') => {
 }
 
 async function getVideoInfo(input, video_id) {
+  // yts() no acepta AbortController directamente, así que lo envolvemos
+  // con conTiempo() para evitar que se cuelgue indefinidamente si hay
+  // problemas de red (que fue lo que pasó en las pruebas en Termux).
+  const BUSQUEDA_TIMEOUT = 20000
   if (video_id) {
+    console.log(`[play] 🔎 Buscando info del video ID "${video_id}" (timeout ${BUSQUEDA_TIMEOUT/1000}s)...`)
     try {
-      const info = await yts({ videoId: video_id })
+      const info = await conTiempo(
+        yts({ videoId: video_id }),
+        BUSQUEDA_TIMEOUT,
+        'no se pudo obtener la información del video (yt-search videoId)'
+      )
       if (info?.videoId) {
+        console.log(`[play] ✅ Info de videoId OK → "${info.title?.slice(0, 60)}..."`)
         return { ...info, url: `https://youtu.be/${info.videoId}`, image: info.thumbnail || info.image }
       }
-    } catch {}
+    } catch (e) {
+      console.log(`[play] ⚠️ Búsqueda por videoId falló: ${e.message}, probando búsqueda por texto...`)
+    }
   }
-  const search = await yts(input)
-  return search.videos?.[0] || search.all?.find(v => v.type === 'video') || null
+  console.log(`[play] 🔎 Buscando "${String(input).slice(0, 60)}" (timeout ${BUSQUEDA_TIMEOUT/1000}s)...`)
+  const search = await conTiempo(
+    yts(input),
+    BUSQUEDA_TIMEOUT,
+    'la búsqueda en YouTube tardó demasiado (revisa tu conexión a internet)'
+  )
+  const video = search.videos?.[0] || search.all?.find(v => v.type === 'video') || null
+  if (video) console.log(`[play] ✅ Encontrado → "${video.title?.slice(0, 60)}"`)
+  else console.log('[play] ⚠️ La búsqueda no devolvió resultados')
+  return video
 }
 
 // -------------------- lempi.lat API --------------------
@@ -411,6 +448,8 @@ const cmd = {
 
   run: async ({ msg, sock, args, usedPrefix, command }) => {
     try {
+      console.log(`[play] 📥 Comando recibido: "${usedPrefix}${command}" args="${args.join(' ').slice(0,80)}" de ${msg.sender?.split('@')[0]}`)
+
       if (!args[0]) {
         return msg.reply(`《✧》Uso: *${usedPrefix}play <búsqueda o URL>*\nEj: *${usedPrefix}play* bad bunny diles`)
       }
@@ -419,12 +458,14 @@ const cmd = {
       const videoId = getVideoId(input)
       const query = videoId ? `https://youtu.be/${videoId}` : input
 
-      // Reacción inicial de "procesando"
+      // Reacción inicial de "procesando" (para que el usuario vea que el bot sí lo recibió)
       try { await sock.sendMessage(msg.chat, { react: { text: '⏳', key: msg.key } }) } catch {}
 
       // Buscar info del video
+      console.log(`[play] 🔍 Iniciando búsqueda para: "${query.slice(0, 80)}"`)
       const info = await getVideoInfo(query, videoId)
       if (!info?.url) {
+        try { await sock.sendMessage(msg.chat, { react: { text: '❌', key: msg.key } }) } catch {}
         return msg.reply('《✧》No se encontró un video válido de YouTube.')
       }
       const url = info.url
@@ -566,8 +607,13 @@ const cmd = {
 
       try { await sock.sendMessage(msg.chat, { react: { text: '✅', key: msg.key } }) } catch {}
     } catch (e) {
-      console.error('Error en play:', e)
-      await msg.reply(`> Ocurrió un error: ${e?.message || 'error desconocido'}`)
+      console.error('[play] ❌ Error en comando:', e?.message || e)
+      try { await sock.sendMessage(msg.chat, { react: { text: '❌', key: msg.key } }) } catch {}
+      await msg.reply(
+        `《✧》*Error:* ${e?.message || e}\n\n` +
+        `> Si dice "tiempo de espera agotado", tu conexión es inestable o YouTube no responde.\n` +
+        `> Prueba de nuevo en unos segundos.`
+      )
     }
   }
 }
