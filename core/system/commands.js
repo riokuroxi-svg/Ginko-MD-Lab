@@ -127,6 +127,8 @@ downloads: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *DOWNLOAD* 𐦯╶͜─
 > Descargar un reel de Instagram.
 ꕤ *$prefixtiktok » $prefixtt* + <url|query>
 > Descargar un video de TikTok.
+ꕤ *$prefixtrailer* + <película|serie>
+> Buscar y enviar el tráiler oficial de una película o serie.
 ꕤ *$prefixtwitter » $prefixx* + <url>
 > Descargar un video/imagen de Twitter/X.
 ꕤ *$prefixytsearch » $prefixsearch » $prefixys* + <query>
@@ -241,6 +243,25 @@ stickers: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *STICKERS* 𐦯╶͜─�
 ꕤ *$prefixbrat » $prefixbratv » $prefixqc » $prefixemojimix* + <text|mention>
 > Crear stickers con texto.
 ╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ`,
+fun: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *DIVERSIÓN* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜
+> ✐ Comandos divertidos para el grupo.
+ꕤ *$prefixchiste*
+> Un chiste aleatorio.
+ꕤ *$prefixdato » $prefixdatointeresante*
+> Un dato curioso aleatorio.
+ꕤ *$prefixconsejo*
+> Un consejo del día.
+ꕤ *$prefixpiropo*
+> Un piropo al azar.
+ꕤ *$prefix8ball » $prefix8bola* + <pregunta>
+> Bola 8 mágica (respuestas sí/no).
+ꕤ *$prefixlove » $prefixship* + <@usuario>
+> Calculadora de compatibilidad amorosa.
+ꕤ *$prefixdado* [caras]
+> Lanzar un dado (por defecto 6 caras).
+ꕤ *$prefixmoneda » $prefixcoin*
+> Lanzar una moneda (cara o cruz).
+╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ`,
 utils: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *UTILITIES* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜
 > ✐ Comandos de Útilidades.
 ꕤ *$prefixmenu » $prefixhelp » $prefixayuda* + <category>
@@ -279,6 +300,16 @@ utils: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *UTILITIES* 𐦯╶͜─ׄ�
 > Ver información de grupos/canales de WhatsApp.
 ꕤ *$prefixread » $prefixreadviewonce* + <cite / image|video>
 > Convertir imagen/video de una vista a contenido.
+ꕤ *$prefixqrcode » $prefixqrgen » $prefixmakeqr* + <texto|url>
+> Generar un código QR.
+ꕤ *$prefixacortar » $prefixshorturl* + <url>
+> Acortar un enlace con TinyURL.
+ꕤ *$prefixmorse » $prefixdemorse* + <texto|código>
+> Convertir texto a código morse (y viceversa).
+ꕤ *$prefixrecordar » $prefixalarma* + <minutos>|<mensaje>
+> Programar un recordatorio.
+ꕤ *$prefixwastalk » $prefixinfowa* + <número|@usuario>
+> Ver información pública de un número en WhatsApp.
 ╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ`,
 grupo: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *GROUPS* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜
 > ✐ Comandos para administradores de grupos.

@@ -43,6 +43,7 @@ export default {
         anime: ['anime', 'reacciones'],
         downloads: ['downloads', 'descargas'],
         economia: ['economia', 'economy', 'eco'],
+        fun: ['fun', 'diversion', 'entretenimiento', 'juegos'],
         gacha: ['gacha', 'rpg'],
         grupo: ['grupo', 'group'],
         nsfw: ['nsfw', '+18'],
