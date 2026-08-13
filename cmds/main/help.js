@@ -22,16 +22,6 @@ function formatearMs(ms) {
   return [dias && `${dias}d`, `${horas % 24}h`, `${minutos % 60}m`, `${segundos % 60}s`].filter(Boolean).join(' ');
 }
 
-// Genera una thumbnail chiquita del banner para el externalAdReply (Instagram)
-async function makeThumb(buf) {
-  try {
-    const sharp = (await import('sharp')).default;
-    return await sharp(buf).resize({ width: 256 }).jpeg({ quality: 60 }).toBuffer();
-  } catch (_) {
-    return buf;
-  }
-}
-
 export default {
   command: ['allmenu', 'help', 'menu', 'ayuda'],
   category: 'main',
@@ -50,17 +40,21 @@ export default {
       const owner = botSettings.owner || (global.owner && global.owner[0] ? global.owner[0] + '@s.whatsapp.net' : '');
       const prefix = botSettings.prefix || usedPrefix;
 
-      // Banner
+      // Banner local (Bocchi)
       let banner = botSettings.banner || '';
       if ((!banner || banner.includes('yuki-wabot')) && fs.existsSync(LOCAL_BANNER)) {
         banner = LOCAL_BANNER;
       }
 
-      // Canal oficial (usamos el de settings, no el de la DB)
+      // Links oficiales (texto clicable en el menú)
       const channelLink = (global.links && global.links.channel) || '';
-      const canalId = (global.links && global.links.channelId) || botSettings.newsletter_id || '';
-      const canalName = (global.links && global.links.channelName) || botSettings.nameid || 'Canal oficial';
       const instagram = (global.links && global.links.instagram) || '';
+
+      // El "botón de canal" (reenviado desde newsletter) SOLO aparece si el admin lo
+      // configuró con .setchannel, que hace newsletterMetadata() para obtener un JID válido.
+      // Si ponemos un JID no verificado, WhatsApp rechaza el mensaje completo.
+      const canalId = botSettings.newsletter_id || '';
+      const canalName = botSettings.nameid || '';
 
       const isOficialBot = global.sock?.user?.id && botId === (global.sock.user.id.split(':')[0] + '@s.whatsapp.net');
       const botType = isOficialBot ? 'Principal/Owner' : 'Sub Bot';
@@ -118,40 +112,19 @@ export default {
 
       const mentioned = [owner, msg.sender].filter(Boolean);
 
-      // ContextInfo: reenviado desde el canal (esto hace aparecer el botón "Ver canal")
-      const contextInfo = {
-        mentionedJid: mentioned,
-        isForwarded: true,
-        ...(canalId ? {
-          forwardedNewsletterMessageInfo: {
-            newsletterJid: canalId,
-            serverMessageId: 0,
-            newsletterName: canalName
-          }
-        } : {})
-      };
-
-      // Tarjeta de Instagram (externalAdReply)
-      if (instagram) {
-        let thumbBuf = null;
-        try {
-          if (fs.existsSync(LOCAL_BANNER)) {
-            const raw = fs.readFileSync(LOCAL_BANNER);
-            thumbBuf = await makeThumb(raw);
-          }
-        } catch (_) {}
-        contextInfo.externalAdReply = {
-          title: 'Sígueme en Instagram',
-          body: '@__ikg.05',
-          mediaType: 1,
-          renderLargerThumbnail: false,
-          thumbnail: thumbBuf || undefined,
-          sourceUrl: instagram,
-          containsAutoReply: false
+      // ContextInfo seguro: solo el reenvío-newsletter si el JID existe en la DB
+      // (configurado con .setchannel); si no, sin reenvío para que WhatsApp no lo rechace.
+      const contextInfo = { mentionedJid: mentioned };
+      if (canalId && canalName) {
+        contextInfo.isForwarded = true;
+        contextInfo.forwardedNewsletterMessageInfo = {
+          newsletterJid: canalId,
+          serverMessageId: 0,
+          newsletterName: canalName
         };
       }
 
-      if (banner) {
+      if (banner && fs.existsSync(banner)) {
         const isVideo = /\.(mp4|webm)(\?|$)/i.test(banner);
         const media = isVideo
           ? { video: { url: banner }, gifPlayback: true, caption: menu.trim(), contextInfo }
@@ -161,6 +134,7 @@ export default {
         await sock.sendMessage(msg.chat, { text: menu.trim(), contextInfo }, { quoted: msg });
       }
     } catch (e) {
+      console.error('[MENU ERROR]', e);
       await msg.reply(`> Ocurrió un error al mostrar el menú.\n> [Error: *${e.message}*]`);
     }
   }

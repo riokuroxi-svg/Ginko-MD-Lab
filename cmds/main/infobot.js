@@ -30,38 +30,37 @@ export default {
     const uptime = process.uptime();
     const uptimeDate = new Date(colombianTime.getTime() - uptime * 1000);
     const formattedUptimeDate = uptimeDate.toLocaleString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(/^./, m => m.toUpperCase());
-    const canalLink = (global.links && global.links.channel) || '';
+      const canalLink = (global.links && global.links.channel) || '';
     const instagram = (global.links && global.links.instagram) || '';
 
     try {
-      const message = `✐ Información del bot *${botname}!*
+      const lines = [`✐ Información del bot *${botname}!*`, '',
+        `✿ *Nombre Corto ›* ${namebot}`,
+        `✿ *Nombre Largo ›* ${botname}`,
+        `✦ *Moneda ›* ${monedas}`,
+        `✦ *Prefijo${Array.isArray(prefijo) && prefijo.length > 1 ? 's' : ''} ›* ${prefijo === 1 ? '\`sin prefijos\`' : (Array.isArray(prefijo) ? prefijo : [prefijo || '/']).map(p => `\`${p}\``).join(', ')}`, '',
+        `❒ *Tipo ›* ${botType}`,
+        `❒ *Plataforma ›* ${platform}`,
+        `❒ *NodeJS ›* ${nodeVersion}`,
+        `❒ *Activo desde ›* ${formattedUptimeDate}`,
+        `❒ *Sistema Activo ›* ${sistemaUptime}`,
+        `❒ *${desar === 'Hombre' ? 'Dueño' : desar === 'Mujer' ? 'Dueña' : 'Dueño(a)'} ›* ${owner ? (!isNaN(owner.replace(/@s\.whatsapp\.net$/, '')) ? `@${owner.split('@')[0]}` : owner) : "Oculto por privacidad"}`
+      ];
+      if (canalLink) lines.push('', `> \`Canal oficial:\` ${canalLink}`);
+      if (instagram) lines.push(`> \`Instagram:\` ${instagram}`);
+      const message = lines.join('\n').trim();
 
-✿ *Nombre Corto ›* ${namebot}
-✿ *Nombre Largo ›* ${botname}
-✦ *Moneda ›* ${monedas}
-✦ *Prefijo${Array.isArray(prefijo) && prefijo.length > 1 ? 's' : ''} ›* ${prefijo === 1 ? '\`sin prefijos\`' : (Array.isArray(prefijo) ? prefijo : [prefijo || '/']).map(p => `\`${p}\``).join(', ')}
-
-❒ *Tipo ›* ${botType}
-❒ *Plataforma ›* ${platform}
-❒ *NodeJS ›* ${nodeVersion}
-❒ *Activo desde ›* ${formattedUptimeDate}
-❒ *Sistema Activo ›* ${sistemaUptime}
-❒ *${desar === 'Hombre' ? 'Dueño' : desar === 'Mujer' ? 'Dueña' : 'Dueño(a)'} ›* ${owner ? (!isNaN(owner.replace(/@s\.whatsapp\.net$/, '')) ? `@${owner.split('@')[0]}` : owner) : "Oculto por privacidad"}
-
-> \`Canal oficial:\` ${canalLink}
-> \`Instagram:\` ${instagram}`.trim();
-
-      const canalId = (global.links && global.links.channelId) || '';
-      const canalName = (global.links && global.links.channelName) || '';
-      const contextInfo = canalId ? {
+      const dbCanalId = botSettings.newsletter_id || '';
+      const dbCanalName = botSettings.nameid || '';
+      const contextInfo = (dbCanalId && dbCanalName) ? {
         isForwarded: true,
         forwardedNewsletterMessageInfo: {
-          newsletterJid: canalId,
+          newsletterJid: dbCanalId,
           serverMessageId: 0,
-          newsletterName: canalName
+          newsletterName: dbCanalName
         }
       } : {};
-      await sock.sendMessage(msg.chat, { text: message.trim(), contextInfo }, { quoted: msg });
+      await sock.sendMessage(msg.chat, { text: message, contextInfo }, { quoted: msg });
     } catch (e) {
       return msg.reply(`> Ocurrió un error con *${usedPrefix + command}*.\n> [Error: *${e.message}*]`);
     }
