@@ -9,8 +9,8 @@ global.owner = ['525574370309'];
 // Créditos
 global.dev = "🍁 Ginko-MD";
 global.links = {
-  channel: "",
-  github: "",
+  channel: "https://whatsapp.com/channel/0029VbDVFpSGJP89hfZUe522",
+  github: "https://github.com/riokuroxi-svg/Ginko-MD",
   gmail: ""
 }
 global.my = {
