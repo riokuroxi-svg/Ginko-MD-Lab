@@ -1,5 +1,7 @@
 import yts from 'yt-search'
 import fetch from 'node-fetch'
+import chalk from 'chalk'
+import moment from 'moment'
 
 /**
  * .play <búsqueda o URL de YouTube>
@@ -284,12 +286,18 @@ async function procesarRespuesta(sock, m) {
   const pending = getPendingMap(sock)
   if (pending.size === 0) return // limpieza temprana
 
+  // Log del mensaje recibido por el listener (para depurar qué llega realmente)
+  const tipos = Object.keys(m.message || {}).join(', ')
+  const txt = String(m.message?.conversation || m.message?.extendedTextMessage?.text || '').slice(0, 60)
+  console.log(chalk.gray(`[play-listener] 📨 mensaje tipo="${tipos}" texto="${txt}" keyId=${m.key.id}`))
+
   // -------- 1) reacciones (👍 ❤️ 📄 📁) --------
   const reaction = m.message?.reactionMessage
   if (reaction?.key?.id) {
+    const emoji = String(reaction.text || '').trim()
     const job = pending.get(reaction.key.id)
+    console.log(chalk.gray(`[play-listener] 👍 reacción emoji="${emoji}" targetId=${reaction.key.id} jobEncontrado=${!!job}`))
     if (job && !job._procesando && !job._completado) {
-      const emoji = String(reaction.text || '').trim()
       const mapeo = { '👍': 'audio', '❤️': 'video', '📄': 'audiodoc', '📁': 'videodoc' }
       const eleccion = mapeo[emoji]
       if (eleccion) await ejecutarDescarga(sock, job, eleccion, m)
@@ -300,6 +308,7 @@ async function procesarRespuesta(sock, m) {
   // -------- 2) botones / listas / native flow --------
   let selectedId = ''
   let ctxStanzaId = ''
+  let tipoRespuesta = ''
 
   const lrm = m.message?.listResponseMessage
   const brm = m.message?.buttonsResponseMessage
@@ -310,23 +319,29 @@ async function procesarRespuesta(sock, m) {
   if (lrm?.singleSelectReply?.selectedRowId) {
     selectedId = String(lrm.singleSelectReply.selectedRowId)
     ctxStanzaId = lrm.contextInfo?.stanzaId || ''
+    tipoRespuesta = 'listResponse'
   } else if (brm?.selectedButtonId) {
     selectedId = String(brm.selectedButtonId)
     ctxStanzaId = brm.contextInfo?.stanzaId || ''
+    tipoRespuesta = 'buttonsResponse'
   } else if (trm?.selectedId) {
     selectedId = String(trm.selectedId)
     ctxStanzaId = trm.contextInfo?.stanzaId || ''
+    tipoRespuesta = 'templateButton'
   } else if (nfrm?.paramsJson) {
     try {
       const p = JSON.parse(typeof nfrm.paramsJson === 'string' ? nfrm.paramsJson : '{}')
       selectedId = String(p.id || '')
     } catch {}
     ctxStanzaId = irm?.contextInfo?.stanzaId || nfrm.contextInfo?.stanzaId || ''
+    tipoRespuesta = 'nativeFlowResponse'
   } else if (irm?.body?.text) {
     selectedId = String(irm.body.text)
+    tipoRespuesta = 'interactiveBody'
   }
 
   if (selectedId) {
+    console.log(chalk.gray(`[play-listener] 🔘 respuesta tipo=${tipoRespuesta} selectedId="${selectedId}" stanzaId=${ctxStanzaId}`))
     const job = ctxStanzaId ? pending.get(ctxStanzaId) : null
     if (job && !job._procesando && !job._completado) {
       await ejecutarDescarga(sock, job, selectedId, m)
@@ -337,11 +352,13 @@ async function procesarRespuesta(sock, m) {
       const chat = m.key.remoteJid
       for (const [, j] of Array.from(pending.entries()).reverse()) {
         if (j.chat === chat && !j._procesando && !j._completado) {
+          console.log(chalk.gray(`[play-listener] ↩️ usando job más reciente por chat=${chat}`))
           await ejecutarDescarga(sock, j, selectedId, m)
           return
         }
       }
     }
+    console.log(chalk.yellow(`[play-listener] ⚠️ no se encontró job para la respuesta (stanzaId=${ctxStanzaId})`))
     return
   }
 
@@ -353,6 +370,7 @@ async function procesarRespuesta(sock, m) {
   ).trim().toLowerCase()
   const citado = ext?.contextInfo?.stanzaId
   if (citado && texto) {
+    console.log(chalk.gray(`[play-listener] 💬 respuesta por texto citado="${texto.slice(0,40)}" citaId=${citado}`))
     const job = pending.get(citado)
     if (job && !job._procesando && !job._completado) {
       const primera = texto.split(/\s+/)[0]
@@ -552,32 +570,45 @@ const cmd = {
         }
       ] : []
 
-      let card
-      const opts = { quoted: msg }
-      try {
-        if (usarBotones && thumbnail) {
-          card = await sock.sendMessage(msg.chat, {
+      // Armar el payload que se enviará a sendMessage (para loguear su JSON completo)
+      const payload = usarBotones && thumbnail
+        ? {
             image: { url: thumbnail },
             caption,
             footer: '❦ Ginko-MD · toca un botón para descargar ❦',
             buttons: botones
-          }, opts)
-        } else if (thumbnail) {
-          card = await sock.sendMessage(msg.chat, {
-            image: { url: thumbnail },
-            caption
-          }, opts)
-        } else {
-          card = await sock.sendMessage(msg.chat, { text: caption }, opts)
-        }
+          }
+        : thumbnail
+          ? { image: { url: thumbnail }, caption }
+          : { text: caption }
+
+      // Log del objeto enviado, en el mismo formato de bloque que usa el bot
+      const pushname = msg.pushName || 'Sin nombre'
+      const chatLbl = msg.isGroup ? 'Grupo' : 'Privado'
+      const chatVal = msg.isGroup ? (msg.chat || '') : 'Chat Privado'
+      const idLbl = 'ID'
+      const idVal = msg.isGroup ? (msg.chat || '') : 'Chat Privado'
+      console.log(chalk.bold.blue(`╭────────────────────────────···\n│ ${chalk.cyan('Bot')}: ${chalk.greenBright(sock?.user?.id?.split(':')[0] + '@s.whatsapp.net' || '?')}\n│ ${chalk.bold.yellow('Fecha')}: ${chalk.yellowBright(moment().format('DD/MM/YY HH:mm:ss'))}\n│ ${chalk.bold.blueBright('Usuario')}: ${chalk.blueBright(pushname)}\n│ ${chalk.bold.magentaBright('Remitente')}: ${chalk.magentaBright(msg.sender || '')}\n│ ${chalk.bold.green(chatLbl)}: ${chalk.greenBright(chatVal)}\n│ ${chalk.bold.magenta(idLbl)}: ${chalk.blueBright(idVal)}\n│ ${chalk.bold.cyanBright('Payload sendMessage (play/buttons)')}:\n│${chalk.gray(JSON.stringify(payload, null, 2).split('\n').join('\n│'))}\n╰────────────────────────────···`))
+
+      let card
+      const opts = { quoted: msg }
+      try {
+        console.log(chalk.gray('[play] 📤 Enviando tarjeta (usarBotones=' + usarBotones + ', hayThumbnail=' + !!thumbnail + ')...'))
+        card = await sock.sendMessage(msg.chat, payload, opts)
+        console.log(chalk.gray('[play] ✅ Tarjeta enviada, messageId=' + (card?.key?.id || '(sin id)')))
       } catch (e) {
-        console.log('[play] ⚠️ Falló envío con botones, reintentando sin botones:', e.message)
-        card = await sock.sendMessage(msg.chat, {
+        console.log(chalk.red(`[play] ❌ Error enviando tarjeta: ${e?.message || e}`))
+        const fallbackPayload = {
           image: thumbnail ? { url: thumbnail } : undefined,
           caption: caption + '\n\n_(botones no disponibles en este cliente, usa las reacciones o cita el mensaje)_'
-        }, opts).catch(async () =>
-          await sock.sendMessage(msg.chat, { text: caption }, opts)
-        )
+        }
+        try {
+          card = await sock.sendMessage(msg.chat, thumbnail ? fallbackPayload : { text: caption }, opts)
+          console.log(chalk.gray('[play] ↩️ Tarjeta enviada en fallback sin botones'))
+        } catch (e2) {
+          console.log(chalk.red('[play] ❌ Falló también el fallback: ' + (e2?.message || e2)))
+          card = await sock.sendMessage(msg.chat, { text: caption }, opts)
+        }
       }
 
       if (!card?.key?.id) {
