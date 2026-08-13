@@ -1,7 +1,5 @@
 import yts from 'yt-search'
 import fetch from 'node-fetch'
-import chalk from 'chalk'
-import moment from 'moment'
 
 const MAX_REINTENTOS = 3
 const ESPERA_BASE_MS = 1500
@@ -154,9 +152,7 @@ async function descargarAudio(url) {
       const r = await getAudioFromApi(url)
       if (r?.buffer?.length && esMp3Valido(r.buffer)) return r
       ultimo = new Error('El archivo no es un MP3 válido')
-    } catch (e) {
-      ultimo = e
-    }
+    } catch (e) { ultimo = e }
     if (i < MAX_REINTENTOS) await dormir(ESPERA_BASE_MS * i)
   }
   throw ultimo || new Error('Fallaron todos los intentos')
@@ -169,9 +165,7 @@ async function descargarVideo(url) {
       const r = await getVideoFromApi(url)
       if (r?.buffer?.length && esMp4Valido(r.buffer)) return r
       ultimo = new Error('El archivo no es un MP4 válido')
-    } catch (e) {
-      ultimo = e
-    }
+    } catch (e) { ultimo = e }
     if (i < MAX_REINTENTOS) await dormir(ESPERA_BASE_MS * i)
   }
   throw ultimo || new Error('Fallaron todos los intentos')
@@ -266,8 +260,7 @@ async function ejecutarDescarga(sock, job, modo, m) {
   const chat = job.chat
 
   const id = String(modo || '').trim().toLowerCase()
-  let tipo = 'audio'
-  let comoDoc = false
+  let tipo = 'audio', comoDoc = false
   if (id === '__ginko_pad' || id === 'audiodoc' || id === '4' || id === '📄') { tipo = 'audio'; comoDoc = true }
   else if (id === '__ginko_pa' || id === 'audio' || id === '1' || id === 'mp3' || id === '👍' || id === '🎵') { tipo = 'audio'; comoDoc = false }
   else if (id === '__ginko_pvd' || id === 'videodoc' || id === '3' || id === '📁') { tipo = 'video'; comoDoc = true }
@@ -388,39 +381,66 @@ const cmd = {
           `🔵 O bien *cita este mensaje* y escribe:\n` +
           `   *1* o *audio* / *2* o *video* / *3* o *videodoc* / *4* o *audiodoc*`
 
-      const botones = usarBotones ? [{
-        text: '📥 Menú de descarga',
-        sections: [
-          { title: '🎵 AUDIO', rows: [
+      // Secciones del menú (audio + video)
+      const seccionesMenu = [
+        {
+          title: '🎵 AUDIO',
+          rows: [
             { title: '🎵 Audio MP3', description: 'Audio que se reproduce en WhatsApp', rowId: '__ginko_pa' },
             { title: '📄 Audio como documento', description: 'Archivo MP3 descargable', rowId: '__ginko_pad' }
-          ]},
-          { title: '🎬 VIDEO', rows: [
+          ]
+        },
+        {
+          title: '🎬 VIDEO',
+          rows: [
             { title: '🎬 Video MP4', description: 'Video que se reproduce en WhatsApp', rowId: '__ginko_pv' },
             { title: '📁 Video como documento', description: 'Archivo MP4 descargable', rowId: '__ginko_pvd' }
-          ]}
-        ]
-      }] : []
+          ]
+        }
+      ]
 
+      // Payload: cuando hay miniatura y botones activos, usamos nativeFlow
+      // directamente en el nivel superior. La API declarativa de WaSocket
+      // recibe {text, sections: [...]} y la convierte por dentro a un
+      // nativeFlowMessage con name='single_select' y paramsJson — este es
+      // el formato que SÍ abre el menú desplegable en todos los clientes.
+      // (El intento anterior con {buttons:[{text,sections}]} generaba un
+      // buttonsMessage legado que solo abre el menú en algunos clientes.)
       const payload = usarBotones && thumbnail
-        ? { image: { url: thumbnail }, caption, footer: '❦ Ginko-MD · toca un botón ❦', buttons: botones }
+        ? {
+            image: { url: thumbnail },
+            caption,
+            footer: '❦ Ginko-MD · toca un botón ❦',
+            nativeFlow: [{
+              text: '📥 Menú de descarga',
+              sections: seccionesMenu
+            }]
+          }
         : thumbnail
           ? { image: { url: thumbnail }, caption }
           : { text: caption }
-
-      const pushname = msg.pushName || 'Sin nombre'
-      const chatLbl = msg.isGroup ? 'Grupo' : 'Privado'
-      const chatVal = msg.isGroup ? (msg.chat || '') : 'Chat Privado'
-      console.log(chalk.bold.blue(`╭────────────────────────────···\n│ ${chalk.cyan('Bot')}: ${chalk.greenBright(sock?.user?.id?.split(':')[0] + '@s.whatsapp.net' || '?')}\n│ ${chalk.bold.yellow('Fecha')}: ${chalk.yellowBright(moment().format('DD/MM/YY HH:mm:ss'))}\n│ ${chalk.bold.blueBright('Usuario')}: ${chalk.blueBright(pushname)}\n│ ${chalk.bold.magentaBright('Remitente')}: ${chalk.magentaBright(msg.sender || '')}\n│ ${chalk.bold.green(chatLbl)}: ${chalk.greenBright(chatVal)}\n│ ${chalk.bold.magenta('ID')}: ${chalk.blueBright(chatVal)}\n│ ${chalk.bold.cyanBright('Payload sendMessage (play)')}:\n│${chalk.gray(JSON.stringify(payload, null, 2).split('\n').join('\n│'))}\n╰────────────────────────────···`))
 
       let card
       const opts = { quoted: msg }
       try {
         card = await sock.sendMessage(msg.chat, payload, opts)
       } catch (e) {
-        card = await sock.sendMessage(msg.chat, thumbnail ? { image: { url: thumbnail }, caption } : { text: caption }, opts).catch(async () =>
-          await sock.sendMessage(msg.chat, { text: caption }, opts)
-        )
+        // Fallback 1: si falló por nativeFlow, probar con listMessage
+        try {
+          card = await sock.sendMessage(msg.chat, {
+            image: thumbnail ? { url: thumbnail } : undefined,
+            caption,
+            footer: '❦ Ginko-MD',
+            title: '📥 Menú de descarga',
+            buttonText: 'Ver opciones',
+            sections: seccionesMenu
+          }, opts)
+        } catch (e2) {
+          // Fallback 2: solo tarjeta sin botones, usar reacciones/citas
+          card = await sock.sendMessage(msg.chat, thumbnail ? { image: { url: thumbnail }, caption } : { text: caption }, opts).catch(async () =>
+            await sock.sendMessage(msg.chat, { text: caption }, opts)
+          )
+        }
       }
 
       if (!card?.key?.id) return msg.reply('❌ No se pudo enviar la tarjeta de opciones.')
