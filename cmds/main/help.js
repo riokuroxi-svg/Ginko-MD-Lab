@@ -22,6 +22,16 @@ function formatearMs(ms) {
   return [dias && `${dias}d`, `${horas % 24}h`, `${minutos % 60}m`, `${segundos % 60}s`].filter(Boolean).join(' ');
 }
 
+// Genera una thumbnail chiquita del banner para el externalAdReply (Instagram)
+async function makeThumb(buf) {
+  try {
+    const sharp = (await import('sharp')).default;
+    return await sharp(buf).resize({ width: 256 }).jpeg({ quality: 60 }).toBuffer();
+  } catch (_) {
+    return buf;
+  }
+}
+
 export default {
   command: ['allmenu', 'help', 'menu', 'ayuda'],
   category: 'main',
@@ -29,8 +39,8 @@ export default {
   run: async ({ msg, sock, args, usedPrefix }) => {
     try {
       const now = new Date();
-      const colombianTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Mexico_City' }));
-      const tiempo = colombianTime.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/,/g, '');
+      const nowMx = new Date(now.toLocaleString('en-US', { timeZone: 'America/Mexico_City' }));
+      const tiempo = nowMx.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/,/g, '');
       const tempo = moment.tz('America/Mexico_City').format('hh:mm A');
 
       const botId = sock?.user?.id.split(':')[0] + '@s.whatsapp.net';
@@ -38,18 +48,19 @@ export default {
       const botname = botSettings.botname || global.botname || 'Ginko-MD';
       const namebot = botSettings.namebot || botname;
       const owner = botSettings.owner || (global.owner && global.owner[0] ? global.owner[0] + '@s.whatsapp.net' : '');
-      const canalId = botSettings.newsletter_id || '';
-      const canalName = botSettings.nameid || '';
       const prefix = botSettings.prefix || usedPrefix;
 
-      // Banner: si el admin puso uno personalizado lo usa, si no usa la imagen local de Ginko-MD
+      // Banner
       let banner = botSettings.banner || '';
       if ((!banner || banner.includes('yuki-wabot')) && fs.existsSync(LOCAL_BANNER)) {
         banner = LOCAL_BANNER;
       }
 
-      // Canal oficial (link): siempre el de settings, sin importar lo de la DB
+      // Canal oficial (usamos el de settings, no el de la DB)
       const channelLink = (global.links && global.links.channel) || '';
+      const canalId = (global.links && global.links.channelId) || botSettings.newsletter_id || '';
+      const canalName = (global.links && global.links.channelName) || botSettings.nameid || 'Canal oficial';
+      const instagram = (global.links && global.links.instagram) || '';
 
       const isOficialBot = global.sock?.user?.id && botId === (global.sock.user.id.split(':')[0] + '@s.whatsapp.net');
       const botType = isOficialBot ? 'Principal/Owner' : 'Sub Bot';
@@ -93,6 +104,7 @@ export default {
         $tempo: tempo,
         $users: usersCount.toLocaleString(),
         $channel: channelLink,
+        $instagram: instagram,
         $cat: category,
         $sender: sender,
         $botname: botname,
@@ -104,26 +116,46 @@ export default {
         menu = menu.replace(new RegExp(`\\${key}`, 'g'), value);
       }
 
-      // Si hay banner (URL o archivo local) mandamos la imagen; si no, texto plano.
       const mentioned = [owner, msg.sender].filter(Boolean);
+
+      // ContextInfo: reenviado desde el canal (esto hace aparecer el botón "Ver canal")
       const contextInfo = {
         mentionedJid: mentioned,
         isForwarded: true,
-        ...(canalId && canalName ? {
+        ...(canalId ? {
           forwardedNewsletterMessageInfo: {
             newsletterJid: canalId,
-            serverMessageId: '0',
+            serverMessageId: 0,
             newsletterName: canalName
           }
         } : {})
       };
 
+      // Tarjeta de Instagram (externalAdReply)
+      if (instagram) {
+        let thumbBuf = null;
+        try {
+          if (fs.existsSync(LOCAL_BANNER)) {
+            const raw = fs.readFileSync(LOCAL_BANNER);
+            thumbBuf = await makeThumb(raw);
+          }
+        } catch (_) {}
+        contextInfo.externalAdReply = {
+          title: 'Sígueme en Instagram',
+          body: '@__ikg.05',
+          mediaType: 1,
+          renderLargerThumbnail: false,
+          thumbnail: thumbBuf || undefined,
+          sourceUrl: instagram,
+          containsAutoReply: false
+        };
+      }
+
       if (banner) {
         const isVideo = /\.(mp4|webm)(\?|$)/i.test(banner);
-        // URL o ruta local
         const media = isVideo
-          ? { video: fs.existsSync(banner) ? { url: banner } : { url: banner }, gifPlayback: true, caption: menu.trim(), contextInfo }
-          : { image: fs.existsSync(banner) ? { url: banner } : { url: banner }, caption: menu.trim(), contextInfo };
+          ? { video: { url: banner }, gifPlayback: true, caption: menu.trim(), contextInfo }
+          : { image: { url: banner }, caption: menu.trim(), contextInfo };
         await sock.sendMessage(msg.chat, media, { quoted: msg });
       } else {
         await sock.sendMessage(msg.chat, { text: menu.trim(), contextInfo }, { quoted: msg });

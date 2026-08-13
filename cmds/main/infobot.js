@@ -31,6 +31,7 @@ export default {
     const uptimeDate = new Date(colombianTime.getTime() - uptime * 1000);
     const formattedUptimeDate = uptimeDate.toLocaleString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(/^./, m => m.toUpperCase());
     const canalLink = (global.links && global.links.channel) || '';
+    const instagram = (global.links && global.links.instagram) || '';
 
     try {
       const message = `✐ Información del bot *${botname}!*
@@ -47,8 +48,20 @@ export default {
 ❒ *Sistema Activo ›* ${sistemaUptime}
 ❒ *${desar === 'Hombre' ? 'Dueño' : desar === 'Mujer' ? 'Dueña' : 'Dueño(a)'} ›* ${owner ? (!isNaN(owner.replace(/@s\.whatsapp\.net$/, '')) ? `@${owner.split('@')[0]}` : owner) : "Oculto por privacidad"}
 
-> \`Canal oficial:\` ${canalLink}`.trim();
-      await sock.sendMessage(msg.chat, { text: message.trim() }, { quoted: msg });
+> \`Canal oficial:\` ${canalLink}
+> \`Instagram:\` ${instagram}`.trim();
+
+      const canalId = (global.links && global.links.channelId) || '';
+      const canalName = (global.links && global.links.channelName) || '';
+      const contextInfo = canalId ? {
+        isForwarded: true,
+        forwardedNewsletterMessageInfo: {
+          newsletterJid: canalId,
+          serverMessageId: 0,
+          newsletterName: canalName
+        }
+      } : {};
+      await sock.sendMessage(msg.chat, { text: message.trim(), contextInfo }, { quoted: msg });
     } catch (e) {
       return msg.reply(`> Ocurrió un error con *${usedPrefix + command}*.\n> [Error: *${e.message}*]`);
     }

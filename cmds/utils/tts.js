@@ -18,7 +18,6 @@ export default {
     if (!raw) return msg.reply('⚠️ Escribe el texto que quieres convertir en nota de voz.');
 
     await msg.react('🎙️');
-    const statusMsg = await msg.reply('⏳ Generando nota de voz...');
 
     try {
       const mp3Buf = await synthesize(raw);
@@ -34,10 +33,8 @@ export default {
       }, { quoted: msg });
 
       fs.unlinkSync(tmp);
-      try { await sock.sendMessage(msg.chat, { delete: statusMsg.key }); } catch (_) {}
       await msg.react('✅');
     } catch (e) {
-      try { await sock.sendMessage(msg.chat, { delete: statusMsg.key }); } catch (_) {}
       await msg.reply(`❌ No pude generar el audio: ${e.message || e}`);
       await msg.react('❌');
     }
