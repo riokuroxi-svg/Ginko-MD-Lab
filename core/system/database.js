@@ -514,6 +514,14 @@ try {
       }
     }
   }
+  // Limpieza: quitar restos de yuki-wabot en settings existentes (DBs antiguas)
+  try {
+    stmt(`UPDATE settings SET link = '' WHERE link LIKE '%yuki-wabot%'`).run();
+    stmt(`UPDATE settings SET banner = '' WHERE banner LIKE '%yuki-wabot%'`).run();
+    stmt(`UPDATE settings SET icon = '' WHERE icon LIKE '%yuki-wabot%'`).run();
+    stmt(`UPDATE settings SET newsletter_id = '' WHERE newsletter_id = '120363401404146384@newsletter'`).run();
+    stmt(`UPDATE settings SET nameid = '' WHERE nameid LIKE '%yuki%' OR nameid LIKE '%ყµҡเ%'`).run();
+  } catch (_) {}
 } catch (e) { console.error('[DB migration error]', e); }
 
 export function clearDB() {

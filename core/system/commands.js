@@ -312,10 +312,8 @@ utils: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *UTILITIES* 𐦯╶͜─ׄ�
 > Programar un recordatorio.
 ꕤ *$prefixwastalk » $prefixinfowa* + <número|@usuario>
 > Ver información pública de un número en WhatsApp.
-ꕤ *$prefixtts » $prefixvoz » $prefixdecirvoz » $prefixspeak* [voz:&lt;nombre&gt;] + &lt;texto&gt;
-> Convertir texto a audio (voces en español). Usa *$prefixvoces* para verlas.
-ꕤ *$prefixvoces*
-> Ver la lista de voces disponibles para TTS.
+ꕤ *$prefixtts » $prefixvoz » $prefixdecirvoz » $prefixspeak* + <texto>
+> Convertir texto a nota de voz con voz femenina en español.
 ꕤ *$prefixletra » $prefixlyrics* + <artista>/<canción>
 > Buscar la letra de una canción.
 ꕤ *$prefixbtc » $prefixcrypto* + [moneda]
