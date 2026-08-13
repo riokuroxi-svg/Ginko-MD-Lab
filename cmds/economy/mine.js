@@ -7,11 +7,11 @@ import { geminiGenerate } from '#lib/geminiRole';
  *  - Pico requerido, durabilidad, stamina
  *  - Recompensa en monedas
  *  - Narración IA (si hay key configurada), fallback a escenarios clásicos
- *  - Eventos aleatorios con botones nativos (~25% probabilidad)
+ *  - Eventos aleatorios con botones nativos (~50% probabilidad)
  */
 
 const COOLDOWN_MIN = 10;
-const EVENT_CHANCE = 0.25;
+const EVENT_CHANCE = 0.50;
 
 const BTN_PREFIX = '__ginko_mine_';
 const PENDING_TTL = 3 * 60 * 1000; // 3 min para responder al evento
@@ -293,7 +293,7 @@ export default {
     if (hayEvento) {
       caption += `\n│\n│ ✨ ¡*Evento inesperado!* Algo pasa mientras picás...`;
     }
-    caption += `\n╰\`Usa .inventario para ver tus cosas · .tienda para comprar\``;
+    caption += `\n╰\`Usa .inventario · .tienda · .claim (recompensa diaria)\``;
 
     if (!hayEvento) {
       await msg.react(isLegendary ? '💎' : '✨');
