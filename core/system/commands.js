@@ -1,4 +1,4 @@
-export const bodyMenu = `> 𖧧 ¡Hola! *@$sender*, Soy *$namebot*, Aquí tienes la lista de comandos$cat
+export const bodyMenu = `> 𖧧 ¡Hola *@$sender*! Soy *$namebot*, aquí tienes la lista de comandos$cat
 
 ╭┈ࠢ͜┅ࠦ͜͜╾݊͜─ؕ͜─ׄ͜─֬͜─֟͜─֫͜─ׄ͜─ؕ͜─݊͜┈ࠦ͜┅ࠡ͜͜┈࠭͜͜۰۰͜۰
 │✿ *ᴅᴇᴠᴇʟᴏᴘᴇʀ ::* $owner
@@ -7,7 +7,7 @@ export const bodyMenu = `> 𖧧 ¡Hola! *@$sender*, Soy *$namebot*, Aquí tienes
 │⚘ *sʏsᴛᴇᴍ/ᴏᴘʀ ::* $device
 │○ *ᴛɪᴍᴇ ::* $tiempo, $tempo
 │𓏸 *ᴜsᴇʀs ::* $users
-│○ *ᴜʀʟ ::* $link
+│𓆰 *ᴄᴀɴᴀʟ ::* $channel
 ╰ׅ┈ࠢ͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴ ⋱࣭ ᩴ  ⋮֔   ᩴ ⋰╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜┈ࠢ͜╯ׅ
 > Vincula un *Socket* con tu número utilizando *$prefixqr* o *$prefixcode*.
 ‧꒷︶꒷꒥꒷‧₊˚꒷︶꒷꒥꒷︶꒷˚₊‧꒷꒥꒷︶꒷‧`
@@ -123,8 +123,6 @@ downloads: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *DOWNLOAD* 𐦯╶͜─
 > Buscar y descargar imagenes de Pinterest.
 ꕤ *$prefixplay2 » $prefixmp4 » $prefixplayvideo » $prefixytvideo » $prefixytmp4* + <url|query>
 > Descargar un vídeo de YouTube.
-ꕤ *$prefixmanga » $prefixmangadex* + <búsqueda|caps|leer|info>
-> Buscar y leer mangas desde MangaDex (imágenes).
 ꕤ *$prefixreel » $prefixig » $prefixinstagram* + <url>
 > Descargar un reel de Instagram.
 ꕤ *$prefixtiktok » $prefixtt* + <url|query>
@@ -314,8 +312,10 @@ utils: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *UTILITIES* 𐦯╶͜─ׄ�
 > Programar un recordatorio.
 ꕤ *$prefixwastalk » $prefixinfowa* + <número|@usuario>
 > Ver información pública de un número en WhatsApp.
-ꕤ *$prefixtts » $prefixvoz* + <texto>
-> Convertir texto a nota de voz en español.
+ꕤ *$prefixtts » $prefixvoz » $prefixdecirvoz » $prefixspeak* [voz:&lt;nombre&gt;] + &lt;texto&gt;
+> Convertir texto a audio (voces en español). Usa *$prefixvoces* para verlas.
+ꕤ *$prefixvoces*
+> Ver la lista de voces disponibles para TTS.
 ꕤ *$prefixletra » $prefixlyrics* + <artista>/<canción>
 > Buscar la letra de una canción.
 ꕤ *$prefixbtc » $prefixcrypto* + [moneda]

@@ -1,66 +1,82 @@
-/**
- * .tts <texto>  →  nota de voz en español que lee el texto.
- * Usa el TTS gratuito de Google Translate (client=tw-ob).
- * Trocea textos largos en varios audios porque el endpoint tiene un límite ~200 chars.
- */
-const MAX_TTS = 180;
+// TTS (Texto a voz) con voces reales de Microsoft Edge (GRATIS, sin API key).
+// Usa voces Neurales en español con distintas voces (mujer/hombre, varios acentos).
+// Uso:
+//   .tts <texto>                       -> voz por defecto (Dalia, mujer MX)
+//   .tts voz:<nombre> <texto>          -> elegir voz
+//   .tts <texto> --voz jorge
+//   .voces                             -> lista de voces disponibles
+import { synthesize, VOICES, DEFAULT_VOICE, resolveVoice } from '#lib/edgeTTS';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 
 export default {
-  command: ['tts', 'voz', 'decirvoz', 'speak'],
+  command: ['tts', 'voz', 'decirvoz', 'speak', 'ttsvoz', 'voces', 'ttsvoces'],
   category: 'utils',
-  description: 'Convertir texto a nota de voz en español.',
-  run: async ({ msg, sock, args, usedPrefix, command, text }) => {
-    if (!text) {
+  description: 'Convierte texto a audio con varias voces en español.',
+  run: async ({ msg, sock, args, usedPrefix, command }) => {
+    const cmd = command.toLowerCase();
+
+    // Lista de voces
+    if (cmd === 'voces' || cmd === 'ttsvoces' || args[0] === 'list' || args[0] === 'voces') {
+      const def = VOICES[DEFAULT_VOICE];
+      let txt = '🎙️ *Voces disponibles:*\n\n';
+      for (const [key, v] of Object.entries(VOICES)) {
+        txt += `• *${key}* → ${v.name}${key === DEFAULT_VOICE ? ' _(predeterminada)_' : ''}\n`;
+      }
+      txt += `\nUso: *${usedPrefix}tts voz:jorge Hola qué tal*`;
+      txt += `\nO: *${usedPrefix}tts Hola --voz elena*`;
+      return msg.reply(txt);
+    }
+
+    if (!args[0]) {
       return msg.reply(
-        `《✧》 Escribe el texto que quieres que *diga* el bot.\n`
-        + `> Ejemplo: ${usedPrefix}tts Hola, este es un mensaje de voz`
+        `🎙️ *Texto a voz*\n\n` +
+        `Escribe: *${usedPrefix}tts <texto>*\n\n` +
+        `Voces disponibles (usa *${usedPrefix}voces* para verlas):\n` +
+        `${Object.entries(VOICES).slice(0,6).map(([k,v])=>`• ${k} (${v.name})`).join('\n')}\n\n` +
+        `Ej: *${usedPrefix}tts voz:dalia Hola amigos*`
       );
     }
-    await msg.react('🔊');
-    // Trocear el texto en oraciones de ~180 chars
-    const partes = trocear(text, MAX_TTS);
-    try {
-      for (let i = 0; i < partes.length; i++) {
-        const parte = partes[i];
-        const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=es&client=tw-ob&q=${encodeURIComponent(parte)}`;
-        const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-        if (!res.ok) throw new Error(`HTTP ${res.status} al pedir audio (parte ${i + 1})`);
-        const buf = Buffer.from(await res.arrayBuffer());
-        if (buf.length < 500) throw new Error('Audio vacío.');
-        await sock.sendMessage(msg.chat, {
-          audio: buf,
-          mimetype: 'audio/mpeg',
-          ptt: true, // nota de voz
-        }, { quoted: i === 0 ? msg : undefined });
-      }
-      await msg.react('✔️');
-    } catch (e) {
-      await msg.react('❌');
-      msg.reply(`《✧》 No pude generar el audio.\n> ${e.message}`);
-    }
-  },
-};
 
-function trocear(texto, max) {
-  const palabras = texto.split(/\s+/);
-  const trozos = [];
-  let actual = '';
-  for (const p of palabras) {
-    if ((actual + ' ' + p).trim().length > max) {
-      if (actual) trozos.push(actual.trim());
-      // Si una sola palabra es muy larga, cortarla a lo bruto
-      if (p.length > max) {
-        for (let i = 0; i < p.length; i += max) {
-          trozos.push(p.slice(i, i + max));
-        }
-        actual = '';
-      } else {
-        actual = p;
-      }
-    } else {
-      actual = (actual ? actual + ' ' : '') + p;
+    let raw = args.join(' ');
+    // Detectar voz por flag --voz o voz:
+    let voiceKey = DEFAULT_VOICE;
+    const mFlag = raw.match(/--voz\s+([a-zA-Záéíóúñ]+)/i) || raw.match(/(?:^|\s)voz:([a-zA-Záéíóúñ]+)/i);
+    if (mFlag) {
+      voiceKey = mFlag[1].toLowerCase();
+      raw = raw.replace(mFlag[0], ' ').trim();
+    }
+    // Si el primer arg es el nombre exacto de una voz seguido de texto, también lo toma
+    if (!raw && args[0]) raw = args.join(' ');
+    if (!raw.trim()) return msg.reply('⚠️ Escribe el texto que quieres convertir a voz.');
+
+    const voice = resolveVoice(voiceKey);
+
+    await msg.react('🎙️');
+    const statusMsg = await msg.reply(`⏳ Generando audio con voz *${voice.name}*...`);
+
+    try {
+      const mp3Buf = await synthesize(raw, voiceKey);
+      if (!mp3Buf || mp3Buf.length < 500) throw new Error('Audio vacío');
+
+      const tmp = path.join(os.tmpdir(), `ginko_tts_${Date.now()}.mp3`);
+      fs.writeFileSync(tmp, mp3Buf);
+
+      await sock.sendMessage(msg.chat, {
+        audio: { url: tmp },
+        mimetype: 'audio/mpeg',
+        ptt: false,
+        fileName: `tts_${voiceKey}.mp3`
+      }, { quoted: msg });
+
+      fs.unlinkSync(tmp);
+      try { await sock.sendMessage(msg.chat, { delete: statusMsg.key }); } catch (_) {}
+      await msg.react('✅');
+    } catch (e) {
+      try { await sock.sendMessage(msg.chat, { delete: statusMsg.key }); } catch (_) {}
+      await msg.reply(`❌ No pude generar el audio: ${e.message || e}`);
+      await msg.react('❌');
     }
   }
-  if (actual.trim()) trozos.push(actual.trim());
-  return trozos;
-}
+};
