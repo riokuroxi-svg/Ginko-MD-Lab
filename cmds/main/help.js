@@ -46,8 +46,6 @@ export default {
         banner = LOCAL_BANNER;
       }
 
-      // Links oficiales (texto clicable en el menú)
-      const channelLink = (global.links && global.links.channel) || '';
       const instagram = (global.links && global.links.instagram) || '';
 
       // El "botón de canal" (reenviado desde newsletter) aparece si el JID
@@ -104,7 +102,6 @@ export default {
         $tiempo: tiempo,
         $tempo: tempo,
         $users: usersCount.toLocaleString(),
-        $channel: channelLink,
         $instagram: instagram,
         $cat: category,
         $sender: sender,

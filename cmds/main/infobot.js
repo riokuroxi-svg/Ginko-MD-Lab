@@ -30,8 +30,7 @@ export default {
     const uptime = process.uptime();
     const uptimeDate = new Date(colombianTime.getTime() - uptime * 1000);
     const formattedUptimeDate = uptimeDate.toLocaleString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(/^./, m => m.toUpperCase());
-      const canalLink = (global.links && global.links.channel) || '';
-    const instagram = (global.links && global.links.instagram) || '';
+      const instagram = (global.links && global.links.instagram) || '';
 
     // Resolver JID del canal en background
     const { resolveChannel, getChannelInfo } = await import('#lib/channel');
@@ -55,8 +54,7 @@ export default {
         `❒ *Sistema Activo ›* ${sistemaUptime}`,
         `❒ *${desar === 'Hombre' ? 'Dueño' : desar === 'Mujer' ? 'Dueña' : 'Dueño(a)'} ›* ${owner ? (!isNaN(owner.replace(/@s\.whatsapp\.net$/, '')) ? `@${owner.split('@')[0]}` : owner) : "Oculto por privacidad"}`
       ];
-      if (canalLink) lines.push('', `> \`Canal oficial:\` ${canalLink}`);
-      if (instagram) lines.push(`> \`Instagram:\` ${instagram}`);
+      if (instagram) lines.push('', `> \`Instagram:\` ${instagram}`);
       const message = lines.join('\n').trim();
 
       const contextInfo = (dbCanalId && dbCanalName) ? {
