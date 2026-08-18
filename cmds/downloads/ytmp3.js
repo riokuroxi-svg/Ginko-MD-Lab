@@ -1,11 +1,12 @@
 import yts from 'yt-search'
-import fetch from 'node-fetch'
+import { fastFetch, globalFetchCache } from '#lib/fastFetch'
 
-const MAX_REINTENTOS = 3
-const ESPERA_BASE_MS = 1500
+const MAX_REINTENTOS = 2
+const ESPERA_BASE_MS = 500
 const PENDING_TTL_MS = 10 * 60 * 1000
 const MAX_MB_AUDIO = 50 * 1024 * 1024
 const MAX_MB_VIDEO = 100 * 1024 * 1024
+const CACHE_AUDIO_TTL = 15 * 60 * 1000
 
 const ALIAS_MENU = ['play']
 const ALIAS_AUDIO_DIRECTO = ['mp3', 'ytmp3', 'ytaudio', 'playaudio']
@@ -75,13 +76,52 @@ const getVideoId = (text = '') => {
   return null
 }
 
+// Metadata RÁPIDA por oEmbed (60ms!) cuando tenemos el ID del video
+async function getVideoInfoFast(videoId) {
+  const cacheKey = `ytmeta:${videoId}`
+  const cached = globalFetchCache.get(cacheKey)
+  if (cached) return cached
+  try {
+    const res = await fastFetch(`https://www.youtube.com/oembed?url=https://youtu.be/${videoId}&format=json`, { timeout: 4000 })
+    if (!res.ok) return null
+    const json = await res.json()
+    const info = {
+      videoId,
+      url: `https://youtu.be/${videoId}`,
+      title: json.title || 'Audio',
+      thumbnail: json.thumbnail_url || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+      author: { name: json.author_name || 'Desconocido' },
+      timestamp: '??',
+      ago: '',
+      views: 0,
+    }
+    globalFetchCache.set(cacheKey, info, 60 * 60 * 1000)
+    return info
+  } catch {
+    return null
+  }
+}
+
+// Metadata por búsqueda yt-search (fallback)
+async function getVideoInfoSearch(query) {
+  const search = await conTiempo(
+    yts(query),
+    12000,
+    'la búsqueda en YouTube tardó demasiado'
+  )
+  return search.videos?.[0] || search.all?.find(v => v.type === 'video') || null
+}
+
 async function getVideoInfo(input, video_id) {
-  const BUSQUEDA_TIMEOUT = 20000
+  // Si tenemos ID, primero intentamos oEmbed SUPER RÁPIDO
   if (video_id) {
+    const fast = await getVideoInfoFast(video_id)
+    if (fast) return fast
+    // Fallback a yt-search
     try {
       const info = await conTiempo(
         yts({ videoId: video_id }),
-        BUSQUEDA_TIMEOUT,
+        8000,
         'no se pudo obtener la información del video'
       )
       if (info?.videoId) {
@@ -89,73 +129,63 @@ async function getVideoInfo(input, video_id) {
       }
     } catch {}
   }
-  const search = await conTiempo(
-    yts(input),
-    BUSQUEDA_TIMEOUT,
-    'la búsqueda en YouTube tardó demasiado (revisa tu conexión)'
-  )
-  return search.videos?.[0] || search.all?.find(v => v.type === 'video') || null
+  return getVideoInfoSearch(input)
 }
 
-async function getAudioFromApi(url) {
-  const apiUrl = `https://api.lempi.lat/dl/yta?url=${encodeURIComponent(url)}&apikey=montekey28`
-  const ctrlMeta = new AbortController()
-  const toMeta = setTimeout(() => ctrlMeta.abort(), 25000)
-  let res
-  try {
-    res = await fetch(apiUrl, { headers: { accept: 'application/json' }, signal: ctrlMeta.signal })
-  } finally { clearTimeout(toMeta) }
-  if (!res.ok) throw new Error(`API respondió HTTP ${res.status}`)
-  const json = await res.json()
-  if (!json?.status || !json?.datos?.url) throw new Error('La API no devolvió enlace de descarga')
+// APIs de descarga en ORDEN DE VELOCIDAD (primero las más rápidas)
+const APIS_AUDIO = [
+  // API principal: lempi (ya tenemos key)
+  async (videoId) => {
+    const url = `https://youtu.be/${videoId}`
+    const apiUrl = `https://api.lempi.lat/dl/yta?url=${encodeURIComponent(url)}&apikey=montekey28`
+    const res = await fastFetch(apiUrl, { timeout: 15000, cache: true, cacheTTL: CACHE_AUDIO_TTL })
+    if (!res.ok) throw new Error(`API respondió HTTP ${res.status}`)
+    const json = await res.json()
+    if (!json?.status || !json?.datos?.url) throw new Error('API no devolvió enlace')
+    return { downloadUrl: json.datos.url, filename: json.datos.archivo || 'audio.mp3' }
+  },
+]
 
-  const ctrlAudio = new AbortController()
-  const toAudio = setTimeout(() => ctrlAudio.abort(), 90000)
-  let audioRes
-  try {
-    audioRes = await fetch(json.datos.url, { signal: ctrlAudio.signal })
-  } finally { clearTimeout(toAudio) }
-  if (!audioRes.ok) throw new Error(`Enlace de audio roto (HTTP ${audioRes.status})`)
-  const buffer = Buffer.from(await audioRes.arrayBuffer())
-  if (buffer.length < 50 * 1024) throw new Error(`Archivo demasiado pequeño (${buffer.length} bytes)`)
-  return { buffer, name: json.datos.archivo || 'audio.mp3' }
+async function descargarAudioBuffer(videoId) {
+  // Primero revisar cache de audio
+  const cacheKey = `ytaudio:${videoId}`
+  const cachedBuf = globalFetchCache.get(cacheKey)
+  if (cachedBuf) return { buffer: cachedBuf, name: `audio.mp3` }
+
+  let ultimoError = null
+  for (const apiFn of APIS_AUDIO) {
+    for (let intento = 1; intento <= MAX_REINTENTOS; intento++) {
+      try {
+        const { downloadUrl, filename } = await apiFn(videoId)
+        const audioRes = await fastFetch(downloadUrl, { timeout: 60000 })
+        if (!audioRes.ok) throw new Error(`Enlace roto (HTTP ${audioRes.status})`)
+        const buffer = Buffer.from(await audioRes.arrayBuffer())
+        if (buffer.length < 50 * 1024) throw new Error(`Archivo demasiado pequeño (${buffer.length} bytes)`)
+        if (!esMp3Valido(buffer)) throw new Error('El archivo no es MP3 válido')
+        // Cachear el buffer
+        globalFetchCache.set(cacheKey, buffer, CACHE_AUDIO_TTL)
+        return { buffer, name: filename }
+      } catch (e) {
+        ultimoError = e
+        if (intento < MAX_REINTENTOS) await dormir(ESPERA_BASE_MS * intento)
+      }
+    }
+  }
+  throw ultimoError || new Error('Fallaron todos los intentos de descarga')
 }
 
 async function getVideoFromApi(url) {
   const apiUrl = `https://api.lempi.lat/dl/ytv?url=${encodeURIComponent(url)}&apikey=montekey28`
-  const ctrlMeta = new AbortController()
-  const toMeta = setTimeout(() => ctrlMeta.abort(), 30000)
-  let res
-  try {
-    res = await fetch(apiUrl, { headers: { accept: 'application/json', 'user-agent': 'Mozilla/5.0' }, signal: ctrlMeta.signal })
-  } finally { clearTimeout(toMeta) }
+  const res = await fastFetch(apiUrl, { timeout: 18000 })
   if (!res.ok) throw new Error(`API respondió HTTP ${res.status}`)
   const json = await res.json()
   if (!json?.status || !json?.datos?.url) throw new Error('La API no devolvió enlace de video')
 
-  const ctrlVideo = new AbortController()
-  const toVideo = setTimeout(() => ctrlVideo.abort(), 120000)
-  let videoRes
-  try {
-    videoRes = await fetch(json.datos.url, { signal: ctrlVideo.signal, headers: { 'user-agent': 'Mozilla/5.0' } })
-  } finally { clearTimeout(toVideo) }
+  const videoRes = await fastFetch(json.datos.url, { timeout: 90000, headers: { 'user-agent': 'Mozilla/5.0' } })
   if (!videoRes.ok) throw new Error(`Enlace de video roto (HTTP ${videoRes.status})`)
   const buffer = Buffer.from(await videoRes.arrayBuffer())
   if (buffer.length < 100 * 1024) throw new Error(`Archivo demasiado pequeño (${buffer.length} bytes)`)
   return { buffer, name: json.datos.archivo || 'video.mp4', calidad: json.datos.calidad || '360p' }
-}
-
-async function descargarAudio(url) {
-  let ultimo = null
-  for (let i = 1; i <= MAX_REINTENTOS; i++) {
-    try {
-      const r = await getAudioFromApi(url)
-      if (r?.buffer?.length && esMp3Valido(r.buffer)) return r
-      ultimo = new Error('El archivo no es un MP3 válido')
-    } catch (e) { ultimo = e }
-    if (i < MAX_REINTENTOS) await dormir(ESPERA_BASE_MS * i)
-  }
-  throw ultimo || new Error('Fallaron todos los intentos')
 }
 
 async function descargarVideo(url) {
@@ -269,14 +299,15 @@ async function ejecutarDescarga(sock, job, modo, m) {
   const reactionEmoji = tipo === 'audio' ? (comoDoc ? '📄' : '🎵') : (comoDoc ? '📁' : '🎬')
   try { await sock.sendMessage(chat, { react: { text: reactionEmoji, key: m.key } }) } catch {}
 
-  await sock.sendMessage(chat, {
+  const estadoMsg = await sock.sendMessage(chat, {
     text: `⏳ Descargando ${tipo === 'audio' ? 'audio (MP3)' : 'video (MP4)'}${comoDoc ? ' como documento' : ''}...\n> *${job.title}*`
-  }, { quoted: m })
+  }, { quoted: m }).catch(() => null)
 
   try {
     if (tipo === 'audio') {
-      const r = await descargarAudio(job.url)
+      const r = await descargarAudioBuffer(job.videoId)
       if (r.buffer.length > MAX_MB_AUDIO) throw new Error(`El audio es demasiado grande (más de ${Math.round(MAX_MB_AUDIO/1024/1024)} MB)`)
+      if (estadoMsg?.key) { try { await sock.sendMessage(chat, { delete: estadoMsg.key }) } catch {} }
       await sock.sendMessage(chat, {
         [comoDoc ? 'document' : 'audio']: r.buffer,
         mimetype: 'audio/mpeg',
@@ -288,8 +319,8 @@ async function ejecutarDescarga(sock, job, modo, m) {
       if (r.buffer.length > MAX_MB_VIDEO) throw new Error(`El video es demasiado grande (más de ${Math.round(MAX_MB_VIDEO/1024/1024)} MB)`)
       if (!esMp4Valido(r.buffer)) {
         comoDoc = true
-        await sock.sendMessage(chat, { text: '⚠️ La API no devolvió un MP4 válido, te lo envío como documento.' }, { quoted: m }).catch(() => {})
       }
+      if (estadoMsg?.key) { try { await sock.sendMessage(chat, { delete: estadoMsg.key }) } catch {} }
       await sock.sendMessage(chat, {
         [comoDoc ? 'document' : 'video']: r.buffer,
         mimetype: 'video/mp4',
@@ -298,12 +329,15 @@ async function ejecutarDescarga(sock, job, modo, m) {
       }, { quoted: m })
     }
     job._completado = true
+    try { await sock.sendMessage(chat, { react: { text: '✅', key: job._commandKey || m.key } }) } catch {}
     setTimeout(() => getPendingMap(sock).delete(job.cardId), 60_000)
   } catch (e) {
     job._procesando = false
+    if (estadoMsg?.key) { try { await sock.sendMessage(chat, { delete: estadoMsg.key }) } catch {} }
     await sock.sendMessage(chat, {
       text: `❌ *Error al descargar:* ${e?.message || e}\n\n> Prueba con otro enlace o vuelve a intentarlo en unos segundos.`
     }, { quoted: m })
+    try { await sock.sendMessage(chat, { react: { text: '❌', key: job._commandKey || m.key } }) } catch {}
   }
 }
 
@@ -320,36 +354,62 @@ const cmd = {
 
       const input = args.join(' ').trim()
       const videoId = getVideoId(input)
-      const query = videoId ? `https://youtu.be/${videoId}` : input
 
-      try { await sock.sendMessage(msg.chat, { react: { text: '⏳', key: msg.key } }) } catch {}
+      // Reaccionar INMEDIATAMENTE para que el usuario vea respuesta
+      try { await sock.sendMessage(msg.chat, { react: { text: '🔍', key: msg.key } }) } catch {}
 
-      const info = await getVideoInfo(query, videoId)
+      // MODO AUDIO DIRECTO (.mp3 / .ytmp3): empezar a descargar EN PARALELO con la búsqueda de metadata
+      const isDirectAudio = ALIAS_AUDIO_DIRECTO.includes(command)
+
+      if (isDirectAudio && videoId) {
+        // Si ya tenemos el ID del video, empezamos a descargar ya! sin esperar a metadata
+        const estado = await sock.sendMessage(msg.chat, { text: `⏳ Descargando audio...` }, { quoted: msg }).catch(() => null)
+        
+        try {
+          // Descargar y obtener metadata en paralelo
+          const [audioResult, info] = await Promise.allSettled([
+            descargarAudioBuffer(videoId),
+            getVideoInfo(input, videoId)
+          ])
+          
+          if (audioResult.status !== 'fulfilled') throw audioResult.reason || new Error('No se pudo descargar')
+          const r = audioResult.value
+          
+          if (r.buffer.length > MAX_MB_AUDIO) throw new Error(`El audio es demasiado grande (más de 50 MB)`)
+          
+          const title = (info.status === 'fulfilled' && info.value) ? (info.value.title || 'Audio') : 'Audio'
+          
+          if (estado?.key) { try { await sock.sendMessage(msg.chat, { delete: estado.key }) } catch {} }
+          
+          await sock.sendMessage(msg.chat, {
+            audio: r.buffer,
+            fileName: `${sanitizeFilename(title)}.mp3`,
+            mimetype: 'audio/mpeg'
+          }, { quoted: msg })
+          
+          try { await sock.sendMessage(msg.chat, { react: { text: '✅', key: msg.key } }) } catch {}
+        } catch (e) {
+          if (estado?.key) { try { await sock.sendMessage(msg.chat, { delete: estado.key }) } catch {} }
+          await msg.reply(`《✧》No se pudo descargar el audio: ${e?.message || e}`)
+          try { await sock.sendMessage(msg.chat, { react: { text: '❌', key: msg.key } }) } catch {}
+        }
+        return
+      }
+
+      // MODO NORMAL .play: buscar info y mostrar menú
+      const info = await getVideoInfo(input, videoId)
       if (!info?.url) {
         try { await sock.sendMessage(msg.chat, { react: { text: '❌', key: msg.key } }) } catch {}
         return msg.reply('《✧》No se encontró un video válido de YouTube.')
       }
       const url = info.url
+      const foundVideoId = videoId || getVideoId(url)
       const title = info.title || 'audio'
-      const thumbnail = info.thumbnail || info.image || null
+      const thumbnail = info.thumbnail || info.image || (foundVideoId ? `https://i.ytimg.com/vi/${foundVideoId}/hqdefault.jpg` : null)
       const channel = info.author?.name || info.author || 'Desconocido'
-      const duration = info.timestamp || 'Desconocido'
+      const duration = info.timestamp || '??'
       const views = Number(info.views || 0).toLocaleString('es-HN')
-      const ago = info.ago || 'Desconocido'
-
-      if (ALIAS_AUDIO_DIRECTO.includes(command)) {
-        const estado = await sock.sendMessage(msg.chat, { text: `⏳ Descargando *${title}*...` }, { quoted: msg }).catch(() => null)
-        try {
-          const r = await descargarAudio(url)
-          await sock.sendMessage(msg.chat, { audio: r.buffer, fileName: `${sanitizeFilename(title)}.mp3`, mimetype: 'audio/mpeg' }, { quoted: msg })
-          try { if (estado?.key) await sock.sendMessage(msg.chat, { delete: estado.key }) } catch {}
-        } catch (e) {
-          await msg.reply(`《✧》No se pudo descargar el audio: ${e?.message || e}`)
-        } finally {
-          try { await sock.sendMessage(msg.chat, { react: { text: '✅', key: msg.key } }) } catch {}
-        }
-        return
-      }
+      const ago = info.ago || ''
 
       registrarListener(sock)
 
@@ -360,8 +420,8 @@ const cmd = {
         `> ❖ Título  › *${title}*\n` +
         `> ❖ Canal   › *${channel}*\n` +
         `> ⴵ Duración › *${duration}*\n` +
-        `> ❀ Vistas  › *${views}*\n` +
-        `> ✩ Publicado › *${ago}*\n` +
+        (views && views !== '0' ? `> ❀ Vistas  › *${views}*\n` : '') +
+        (ago ? `> ✩ Publicado › *${ago}*\n` : '') +
         `> ❒ Enlace › ${url}\n\n`
 
       const caption = usarBotones
@@ -381,10 +441,6 @@ const cmd = {
           `🔵 O bien *cita este mensaje* y escribe:\n` +
           `   *1* o *audio* / *2* o *video* / *3* o *videodoc* / *4* o *audiodoc*`
 
-      // Botones rápidos directos (formato buttonsMessage con type:1 = quick_reply).
-      // Dos botones visibles directamente debajo de la imagen: Audio MP3 y Video MP4.
-      // Las opciones de documento y ayuda extra siguen disponibles citando el
-      // mensaje o por reacciones. Usamos 2 botones para máxima compatibilidad.
       const botonesRespuesta = usarBotones ? [
         {
           buttonId: '__ginko_pa',
@@ -398,8 +454,6 @@ const cmd = {
         }
       ] : []
 
-      // Payload: imagen + caption + botones rápidos. headerType=4 = imagen.
-      // footerText se usa en el formato buttonsMessage (no "footer").
       const payload = usarBotones && thumbnail
         ? {
             image: { url: thumbnail },
@@ -417,7 +471,6 @@ const cmd = {
       try {
         card = await sock.sendMessage(msg.chat, payload, opts)
       } catch (e) {
-        // Si los botones fallan, mandar solo la imagen sin botones (funciona por reacciones/citas)
         card = await sock.sendMessage(msg.chat, thumbnail ? { image: { url: thumbnail }, caption } : { text: caption }, opts).catch(async () =>
           await sock.sendMessage(msg.chat, { text: caption }, opts)
         )
@@ -427,8 +480,9 @@ const cmd = {
 
       const job = {
         cardId: card.key.id, cardKey: card.key, chat: msg.chat,
-        url, title, channel, duration, views, ago, thumbnail,
+        url, videoId: foundVideoId, title, channel, duration, views, ago, thumbnail,
         pref: usedPrefix, commandMsg: msg,
+        _commandKey: msg.key,
         _createdAt: Date.now(), _procesando: false, _completado: false
       }
       getPendingMap(sock).set(card.key.id, job)
