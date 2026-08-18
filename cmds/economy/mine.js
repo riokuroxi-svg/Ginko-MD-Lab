@@ -41,6 +41,20 @@ function registrarListener(sock) {
   });
 }
 
+// Normaliza un JID a su forma base (número@s.whatsapp.net o grupo@g.us)
+// para que no importe si viene :0@lid, :16@s.whatsapp.net, etc.
+function jidBase(jid) {
+  if (!jid) return '';
+  let s = String(jid);
+  // Quitar cualquier cosa después de ':' en la parte del usuario (salvo el @)
+  s = s.replace(/^(\d+):\d+@/, '$1@');
+  // Convertir @lid a @s.whatsapp.net (formato antiguo usado en algunas versiones)
+  if (s.endsWith('@lid')) {
+    s = s.replace(/@lid$/, '@s.whatsapp.net');
+  }
+  return s;
+}
+
 async function procesarRespuesta(sock, m) {
   const pending = getPendingMap(sock);
   if (pending.size === 0) return;
@@ -52,9 +66,11 @@ async function procesarRespuesta(sock, m) {
   if (!stanzaId) return;
   const job = pending.get(stanzaId);
   if (!job) return;
-  if (m.key.remoteJid !== job.chatId) return;
-  // Solo el usuario que minó puede responder
-  if (m.key.remoteJid.endsWith('@g.us') && m.key.participant !== job.userId && m.key.participant !== job.userId.split(':')[0] + '@s.whatsapp.net') {
+  if (jidBase(m.key.remoteJid) !== jidBase(job.chatId)) return;
+  // Solo el usuario que minó puede responder (compara números base)
+  const quienResponde = jidBase(m.key.participant || m.key.remoteJid);
+  const dueno = jidBase(job.userId);
+  if (m.key.remoteJid.endsWith('@g.us') && quienResponde !== dueno) {
     return sock.sendMessage(job.chatId, { text: '✖ Este evento no es tuyo.' }, { quoted: m }).catch(() => {});
   }
   pending.delete(stanzaId);

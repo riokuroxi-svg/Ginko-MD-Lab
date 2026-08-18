@@ -116,10 +116,13 @@ export default {
 
       const mentioned = [owner, msg.sender].filter(Boolean);
 
-      // ContextInfo seguro: solo el reenvío-newsletter si el JID existe en la DB
-      // (configurado con .setchannel); si no, sin reenvío para que WhatsApp no lo rechace.
+      // ContextInfo seguro:
+      // - El botón "Ver canal" (forwarded newsletter) SOLO se envía en GRUPOS.
+      //   En chats privados (DM/@s.whatsapp.net) WhatsApp a veces no logra descifrar
+      //   el reenvío del canal y muestra "Esperando mensaje. Esto puede tomar tiempo".
+      const isGroup = msg.chat.endsWith('@g.us');
       const contextInfo = { mentionedJid: mentioned };
-      if (canalId && canalName) {
+      if (isGroup && canalId && canalName) {
         contextInfo.isForwarded = true;
         contextInfo.forwardedNewsletterMessageInfo = {
           newsletterJid: canalId,
