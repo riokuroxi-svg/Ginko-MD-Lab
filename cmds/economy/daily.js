@@ -1,6 +1,6 @@
 import db from '#db';
 export default {
-  command: ['daily', 'diario', 'claim', 'reclamar'],
+  command: ['daily', 'diario', 'recompensa', 'gratis'],
   category: 'economy',
   description: 'Reclamar tu recompensa diaria.',
   run: async ({ msg, sock, usedPrefix }) => {
