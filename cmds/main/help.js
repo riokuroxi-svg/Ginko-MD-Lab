@@ -133,9 +133,12 @@ export default {
 
       if (banner && fs.existsSync(banner)) {
         const isVideo = /\.(mp4|webm)(\?|$)/i.test(banner);
+        // Leer a Buffer para que Baileys no tenga que resolver rutas locales
+        // en un flujo que a veces WhatsApp interpreta como "cargando" en DMs.
+        const mediaBuffer = fs.readFileSync(banner);
         const media = isVideo
-          ? { video: { url: banner }, gifPlayback: true, caption: menu.trim(), contextInfo }
-          : { image: { url: banner }, caption: menu.trim(), contextInfo };
+          ? { video: mediaBuffer, gifPlayback: true, caption: menu.trim(), contextInfo }
+          : { image: mediaBuffer, caption: menu.trim(), contextInfo };
         await sock.sendMessage(msg.chat, media, { quoted: msg });
       } else {
         await sock.sendMessage(msg.chat, { text: menu.trim(), contextInfo }, { quoted: msg });
