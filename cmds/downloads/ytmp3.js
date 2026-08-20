@@ -1,5 +1,6 @@
 import yts from 'yt-search'
 import { fastFetch, globalFetchCache } from '#lib/fastFetch'
+import { processMp3ForWhatsApp } from '#lib/mp3Utils'
 
 const MAX_REINTENTOS = 2
 const ESPERA_BASE_MS = 500
@@ -308,12 +309,23 @@ async function ejecutarDescarga(sock, job, modo, m) {
       const r = await descargarAudioBuffer(job.videoId)
       if (r.buffer.length > MAX_MB_AUDIO) throw new Error(`El audio es demasiado grande (más de ${Math.round(MAX_MB_AUDIO/1024/1024)} MB)`)
       if (estadoMsg?.key) { try { await sock.sendMessage(chat, { delete: estadoMsg.key }) } catch {} }
-      await sock.sendMessage(chat, {
-        [comoDoc ? 'document' : 'audio']: r.buffer,
+      // Procesar MP3 con portada y metadatos limpios (evita AUD-xxxx)
+      let audioFinal = r.buffer
+      let segundos = 0
+      try {
+        await sock.sendMessage(chat, { react: { text: '🖼️', key: m.key } }).catch(() => {})
+        const procesado = await processMp3ForWhatsApp(r.buffer, sanitizeFilename(job.title))
+        audioFinal = procesado.buffer
+        segundos = procesado.seconds || 0
+      } catch (e) { console.log('[play/lab-viejo] Error procesando MP3:', e.message) }
+      const payload = {
+        [comoDoc ? 'document' : 'audio']: audioFinal,
         mimetype: 'audio/mpeg',
         fileName: `${sanitizeFilename(job.title)}.mp3`,
         ptt: false
-      }, { quoted: m })
+      }
+      if (!comoDoc && segundos > 0) payload.seconds = segundos
+      await sock.sendMessage(chat, payload, { quoted: m })
     } else {
       const r = await descargarVideo(job.url)
       if (r.buffer.length > MAX_MB_VIDEO) throw new Error(`El video es demasiado grande (más de ${Math.round(MAX_MB_VIDEO/1024/1024)} MB)`)
@@ -381,11 +393,23 @@ const cmd = {
           
           if (estado?.key) { try { await sock.sendMessage(msg.chat, { delete: estado.key }) } catch {} }
           
-          await sock.sendMessage(msg.chat, {
-            audio: r.buffer,
+          // Procesar MP3 con portada y metadatos limpios (evita AUD-xxxx)
+          let audioFinal = r.buffer
+          let segundos = 0
+          try {
+            await sock.sendMessage(msg.chat, { react: { text: '🖼️', key: msg.key } }).catch(() => {})
+            const procesado = await processMp3ForWhatsApp(r.buffer, sanitizeFilename(title))
+            audioFinal = procesado.buffer
+            segundos = procesado.seconds || 0
+          } catch (e) { console.log('[play/lab-viejo] Error procesando MP3 directo:', e.message) }
+          const payload = {
+            audio: audioFinal,
             fileName: `${sanitizeFilename(title)}.mp3`,
-            mimetype: 'audio/mpeg'
-          }, { quoted: msg })
+            mimetype: 'audio/mpeg',
+            ptt: false
+          }
+          if (segundos > 0) payload.seconds = segundos
+          await sock.sendMessage(msg.chat, payload, { quoted: msg })
           
           try { await sock.sendMessage(msg.chat, { react: { text: '✅', key: msg.key } }) } catch {}
         } catch (e) {

@@ -1,4 +1,5 @@
 import fetch from 'node-fetch'
+import { processMp3ForWhatsApp } from '#lib/mp3Utils'
 
 const MAX_REINTENTOS = 3
 const ESPERA_BASE_MS = 1500
@@ -146,16 +147,17 @@ export default {
         }, { quoted: msg })
       }
 
-      // Enviar audio/música si existe
+      // Enviar audio/música si existe (con portada personalizada)
       if (d.music) {
         try {
           const audioBuf = await fetchBuffer(d.music)
           if (audioBuf && audioBuf.length > 1024) {
-            await sock.sendMessage(msg.chat, {
-              audio: audioBuf,
-              mimetype: 'audio/mpeg',
-              fileName: sanitize(d.music_info?.title || 'tiktok_audio') + '.mp3'
-            }, { quoted: msg })
+            const titulo = sanitize(d.music_info?.title || 'tiktok_audio')
+            let final = audioBuf, segs = 0
+            try { const p = await processMp3ForWhatsApp(audioBuf, titulo); final = p.buffer; segs = p.seconds || 0 } catch {}
+            const payload = { audio: final, mimetype: 'audio/mpeg', fileName: titulo + '.mp3', ptt: false }
+            if (segs > 0) payload.seconds = segs
+            await sock.sendMessage(msg.chat, payload, { quoted: msg })
           }
         } catch (e) {
           console.log('[tiktok] audio falló:', e.message)
