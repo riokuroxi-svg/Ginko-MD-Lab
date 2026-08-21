@@ -1,8 +1,6 @@
 /**
  * .deezer <búsqueda o enlace>  →  busca música en Deezer y envía preview (30s) + info del track.
  */
-import { processMp3ForWhatsApp } from '#lib/mp3Utils'
-
 export default {
   command: ['deezer', 'dzr', 'deezermusic'],
   category: 'downloads',
@@ -39,17 +37,16 @@ export default {
         await msg.reply(caption);
       }
 
-      // Enviar preview de audio (30s) con portada personalizada
+      // Enviar preview de audio (30s)
       if (track.preview) {
         const audioRes = await fetch(track.preview);
         if (audioRes.ok) {
           const buf = Buffer.from(await audioRes.arrayBuffer());
-          const nombre = `${track.artist.name} - ${track.title}`;
-          let final = buf, segs = 0;
-          try { const p = await processMp3ForWhatsApp(buf, nombre); final = p.buffer; segs = p.seconds || 0 } catch {}
-          const payload = { audio: final, mimetype: 'audio/mpeg', fileName: nombre + '.mp3', ptt: false };
-          if (segs > 0) payload.seconds = segs;
-          await sock.sendMessage(msg.chat, payload, { quoted: msg });
+          await sock.sendMessage(msg.chat, {
+            audio: buf,
+            mimetype: 'audio/mpeg',
+            fileName: `${track.artist.name} - ${track.title}.mp3`,
+          }, { quoted: msg });
         }
       } else {
         if (!(track.album?.cover_medium)) await msg.reply(caption);

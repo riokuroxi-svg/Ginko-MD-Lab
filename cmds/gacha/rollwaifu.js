@@ -5,11 +5,11 @@ import db from '#db';
 const FILE_PATH = './core/characters.json';
 const rollLocks = new Map();
 
-// Cache en memoria de personajes (cargamos una sola vez al inicio, no cada vez que se usa el comando)
+// Cache en memoria de personajes (leer disco UNA SOLA VEZ, no cada vez que se usa el comando)
 let charactersCache = null;
 let charactersCacheTime = 0;
-const CHARACTERS_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
 let lastMtime = 0;
+const CHARACTERS_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
 
 function cleanOldLocks() {
   const now = Date.now();
@@ -19,10 +19,10 @@ function cleanOldLocks() {
 }
 
 async function loadCharacters() {
-  // Revisar si el archivo cambió o expiró el cache
   try {
     const stat = await fs.stat(FILE_PATH);
     const now = Date.now();
+    // Usar caché si el archivo no cambió y no expiró
     if (charactersCache && stat.mtimeMs === lastMtime && now - charactersCacheTime < CHARACTERS_CACHE_TTL) {
       return charactersCache;
     }
@@ -38,7 +38,7 @@ async function loadCharacters() {
   }
 }
 
-// Precalentar cache al cargar el comando
+// Precalentar caché al cargar el comando
 loadCharacters().catch(() => {});
 
 function flattenCharacters(chars) {
@@ -129,11 +129,11 @@ export default {
     }
     rollLocks.set(userId, now);
     
-    // Reaccionar inmediatamente para que el usuario vea que el bot respondió
+    // Reaccionar INMEDIATAMENTE para que el usuario vea que el bot respondió
     try { await sock.sendMessage(chatId, { react: { text: '🎲', key: msg.key } }); } catch {}
     
     try {
-      // Cargar personajes del cache (no lee disco si ya está cargado)
+      // Cargar personajes del caché (no lee disco si ya está cargado)
       const chars = await loadCharacters();
       const all = flattenCharacters(chars);
       const selected = all[Math.floor(Math.random() * all.length)];
@@ -141,7 +141,7 @@ export default {
       const source = getSeriesNameByCharacter(chars, selected.id);
       const baseTag = formatTag(selected.tags?.[0] || '');
       
-      // Buscar imágenes en paralelo (más rápido que secuencial)
+      // Buscar imágenes en paralelo
       const mediaList = await buscarImagenDelirius(baseTag);
       const media = mediaList.length > 0 ? mediaList[Math.floor(Math.random() * mediaList.length)] : null;
       
@@ -169,7 +169,7 @@ export default {
       const owner = claimedBy ? (db.getUser(claimedBy))?.name || claimedBy.split('@')[0] : 'desconocido';
       const caption = `❀ Nombre » *${chatChar.name}*\n⚥ Género » *${selected.gender || 'Desconocido'}*\n✰ Valor » *${chatChar.value.toLocaleString()}*\n♡ Estado » *${claimedBy ? `Reclamado por ${owner}` : 'Libre'}*\n❖ Fuente » *${source}*\u206c`;
       
-      // Descargar imagen con keep-alive (más rápido)
+      // Descargar imagen con fastFetch (más rápido con keep-alive)
       const imgRes = await fastFetch(media, {
         timeout: 10000,
         headers: {

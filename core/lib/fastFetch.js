@@ -1,11 +1,10 @@
-// Wrapper de fetch con timeout, reintentos y caché
-// El fetch NATIVO de Node.js 18+ (undici) ya usa keep-alive por defecto
-// por lo que reutiliza conexiones automáticamente.
+// Sistema de fetch rápido con caché en memoria
+// Usa el fetch NATIVO de Node.js (18+) que ya trae keep-alive por defecto
+// para reutilizar conexiones HTTP y ahorrar 100-300ms por petición.
 
-// Usar fetch global (disponible en Node 18+)
 const fetch = globalThis.fetch;
 
-// Cache simple en memoria con TTL
+// Cache simple en memoria con TTL (limpieza automática cada minuto)
 class FastCache {
   constructor(defaultTTL = 10 * 60 * 1000) {
     this.cache = new Map();
@@ -24,84 +23,95 @@ class FastCache {
     return entry.value;
   }
 
+  delete(key) {
+    this.cache.delete(key);
+  }
+
   cleanup() {
     const now = Date.now();
     for (const [k, v] of this.cache) if (now > v.expires) this.cache.delete(k);
   }
 }
 
-export const globalFetchCache = new FastCache(10 * 60 * 1000);
+export const globalFetchCache = new FastCache(15 * 60 * 1000);
 
-// Fast fetch con agente reutilizado, timeout más corto, y cache opcional
+// Fast fetch con timeout y caché opcional
 export async function fastFetch(url, options = {}) {
   const { cache = false, cacheKey, cacheTTL, timeout = 15000, headers = {}, ...rest } = options;
   const key = cacheKey || (cache ? (typeof url === 'string' ? url : url?.href || url?.url) : null);
+  
+  // Devolver de caché si existe
   if (key) {
     const cached = globalFetchCache.get(key);
-    if (cached) return cached;
+    if (cached) {
+      return new Response(cached.body, {
+        status: cached.status,
+        headers: cached.headers
+      });
+    }
   }
+
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), timeout);
   try {
     const res = await fetch(url, {
       ...rest,
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', ...headers },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        ...headers
+      },
       signal: ctrl.signal,
     });
-    if (key && res.ok) {
-      // Clonar para permitir que el caller consuma el body
-      const clone = res.clone();
-      try {
-        const ct = res.headers.get('content-type') || '';
-        if (ct.includes('application/json')) {
-          const json = await res.json();
-          globalFetchCache.set(key, { ok: true, status: res.status, headers: Object.fromEntries(res.headers), json: async () => json, clone: () => ({ json: async () => json }) }, cacheTTL);
-          return new Response(JSON.stringify(json), { status: res.status, headers });
-        } else {
-          const buf = Buffer.from(await res.arrayBuffer());
-          globalFetchCache.set(key, { ok: true, status: res.status, headers: Object.fromEntries(res.headers), arrayBuffer: async () => buf, buffer: async () => buf }, cacheTTL);
-          return new Response(buf, { status: res.status, headers });
-        }
-      } catch { /* no cachear si falla */ }
-      return clone;
+
+    // Guardar en caché si lo piden y la respuesta es exitosa
+    if (key && res.ok && res.status === 200) {
+      const ct = res.headers.get('content-type') || '';
+      let bodyToCache;
+      if (ct.includes('application/json')) {
+        const json = await res.json();
+        bodyToCache = Buffer.from(JSON.stringify(json));
+        // Devolvemos una nueva respuesta que ya tiene el JSON listo
+        const retRes = new Response(bodyToCache, { status: res.status, headers: res.headers });
+        retRes.cachedJson = json;
+        retRes.json = async () => json;
+        globalFetchCache.set(key, {
+          body: bodyToCache,
+          status: res.status,
+          headers: Object.fromEntries(res.headers)
+        }, cacheTTL);
+        clearTimeout(to);
+        return retRes;
+      } else {
+        const buf = Buffer.from(await res.arrayBuffer());
+        globalFetchCache.set(key, {
+          body: buf,
+          status: res.status,
+          headers: Object.fromEntries(res.headers)
+        }, cacheTTL);
+        clearTimeout(to);
+        return new Response(buf, { status: res.status, headers: res.headers });
+      }
     }
-    return res;
-  } finally {
+
     clearTimeout(to);
+    return res;
+  } catch (e) {
+    clearTimeout(to);
+    throw e;
   }
 }
 
-// Ejecuta promesas en paralelo y devuelve la primera que cumpla con el predicado, cancela las demás
-export async function promiseRaceSuccess(promises, predicate = (r) => r != null, timeoutMs = 10000) {
-  const result = await new Promise((resolve, reject) => {
-    let pending = promises.length;
-    let lastError = null;
-    const timers = [];
-    const wrappers = promises.map((p, i) => {
-      return Promise.resolve()
-        .then(() => p)
-        .then((val) => {
-          if (predicate(val)) {
-            // Cancelar las demás
-            timers.forEach(clearTimeout);
-            resolve(val);
-          } else {
-            lastError = new Error('Resultado inválido');
-            pending--;
-            if (pending === 0) reject(lastError);
-          }
-        })
-        .catch((e) => {
-          lastError = e;
-          pending--;
-          if (pending === 0) reject(lastError);
-        });
-    });
-    // Timeout global
-    const t = setTimeout(() => reject(new Error('Tiempo agotado en carrera')), timeoutMs);
-    timers.push(t);
-  });
-  return result;
+// Verifica si yt-dlp está instalado en el sistema (para descargas locales)
+export async function isYtdlpAvailable() {
+  try {
+    const { execFile } = await import('child_process');
+    const { promisify } = await import('util');
+    const exec = promisify(execFile);
+    await exec(process.env.YTDLP_PATH || 'yt-dlp', ['--version'], { timeout: 10000 });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export default fastFetch;
