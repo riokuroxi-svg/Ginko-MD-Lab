@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&height=220&color=gradient&customColorList=13,21,27,30&text=🧪%20LAB%20EXPERIMENTAL%20v2%20⚡&fontSize=46&fontColor=ffffff&animation=fadeIn&fontAlignY=38&desc=Descargas%20instant%C3%A1neas%20con%20yt-dlp%20local%20+%20optimizaciones%20de%20velocidad&descSize=16&descAlignY=60" width="100%"/>
+<img src="https://capsule-render.vercel.app/api?type=waving&height=220&color=gradient&customColorList=13,21,27,30&text=🧪%20GINKO-MD%20LAB%20🧪&fontSize=52&fontColor=ffffff&animation=fadeIn&fontAlignY=38&desc=Laboratorio%20de%20pruebas%20y%20nuevas%20funcionalidades%20para%20Ginko-MD&descSize=17&descAlignY=60" width="100%"/>
 
 <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=700&size=26&duration=2800&pause=600&color=60A5FA&center=true&vCenter=true&width=640&lines=🧪+Zona+de+experimentos+🧪;🚧+NO+usar+en+producción;🌿+Todo+lo+nuevo+se+prueba+antes;✅+Se+fusiona+al+estable+al+funcionar" alt="Typing SVG"/>
 
@@ -10,7 +10,7 @@
 
 <img src="https://img.shields.io/badge/Status-Laboratorio-FBBF24?style=for-the-badge"/>
 <img src="https://img.shields.io/badge/WhatsApp-Bot-25D366?style=for-the-badge&logo=whatsapp&logoColor=white"/>
-<img src="https://img.shields.io/badge/Node.js-22.5%2B-339933?style=for-the-badge&logo=nodedotjs&logoColor=white"/>
+<img src="https://img.shields.io/badge/Node.js-20+-339933?style=for-the-badge&logo=nodedotjs&logoColor=white"/>
 <img src="https://img.shields.io/badge/Baileys-Multi%20Device-25D366?style=for-the-badge"/>
 <img src="https://img.shields.io/badge/Inestable-Pruebas-F87171?style=for-the-badge"/>
 
@@ -44,52 +44,18 @@
 
 <img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a139a6edaec5c.gif" width="100%"/>
 
-## 🧬 Cambios en esta versión (Lab2experimental)
+## 📦 Instalación en Termux (Lab)
 
-> 🚀 Lo nuevo de esta rama de laboratorio:
-
-| Cambio | Detalle |
-|:---|:---|
-| ⚡ **`.play` USA YT-DLP AUTOMÁTICAMENTE** | Si tienes yt-dlp instalado, `.play` y `.mp3` descargan **directamente desde tu celular** (8 conexiones en paralelo, sin APIs lentas de terceros). Las canciones se envían CASI INSTANTÁNEAMENTE, igual que los bots más rápidos. Si no tienes yt-dlp, hace fallback automático a la API de siempre. |
-| ⚡ **Comando `.ytdlp` dedicado** | Motor de descargas **local con yt-dlp** (compatible con +1000 sitios). Modos: `video` (720p), `audio` (m4a nativo turbo, sin conversión), `mp3` (320k) y `fast` (ligero). Caché de 24 h, bypass del throttling de YouTube y 8 fragmentos en paralelo. |
-| 🔄 **Auto-update integrado** | El bot actualiza yt-dlp solo cada 24 h (canal *nightly*, fixes diarios de YouTube). Con `YTDLP_PLUGIN_URL` en `.env`, el plugin también se auto-reemplaza desde el repo. **Cero mantenimiento.** |
-| 🚀 **Optimizaciones generales de velocidad** | Metadata de YouTube por oEmbed en 60ms (antes 2-3s), personajes de gacha en caché de memoria, imágenes de waifu buscadas en paralelo, banner del menú cacheado en RAM, fetch nativo de Node con keep-alive, reacciones inmediatas al recibir comandos. |
-| 🛡️ **Requisito de Node corregido** | `engines` actualizado a **Node ≥ 22.5** (el bot usa `node:sqlite`; con Node 20 crashea al arrancar). |
-| 🌸 **Selector nativo de `.menu`** | `.menu` usa `interactiveMessage.nativeFlowMessage` con `single_select`, banner local y fallback automático; `.menumanual` conserva el menú completo en texto/imagen. |
-| 🧰 **Extras** | `.env.example` extendido, carpeta `docs/` con guías. |
-
-### ⚡ Uso rápido
-
-```
-.menu                                  → selector nativo de categorías
-.menumanual                            → menú completo con texto/imagen
-.ytdlp https://youtu.be/xxxx          → video 720p
-.ytdlp https://youtu.be/xxxx audio    → canción m4a turbo ⚡
-.ytdlp https://youtu.be/xxxx mp3      → mp3 320k
-.ytdlp https://youtu.be/xxxx fast     → m4a ligero
-```
-
-**Requisitos del host:** Node ≥ 22.5 · `pip install -U --pre "yt-dlp[default]"` · `apt install ffmpeg` (solo para el modo mp3).
-
-> 📚 Detalles completos en [`docs/YTDLP-INSTALACION.md`](docs/YTDLP-INSTALACION.md), [`docs/GUIA-INTEGRACION.md`](docs/GUIA-INTEGRACION.md) y [`docs/NATIVE-MENU-TERMUX.md`](docs/NATIVE-MENU-TERMUX.md).
-
-<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a139a6edaec5c.gif" width="100%"/>
-
-## 📦 Instalación en Termux (Lab2experimental ⚡)
-
-Para tener las descargas instantáneas necesitas instalar yt-dlp (es un solo comando):
+Es igual que el estable pero clonando este repo:
 
 ```bash
 pkg update && pkg upgrade -y
 pkg install -y git nodejs python ffmpeg
-pip install -U yt-dlp
-git clone https://github.com/riokuroxi-svg/Lab2experimental
-cd Lab2experimental
+git clone https://github.com/riokuroxi-svg/Ginko-MD-Lab
+cd Ginko-MD-Lab
 npm install
 npm start
 ```
-
-Si no instalas yt-dlp, el bot funciona igual pero las descargas usan la API (más lento).
 
 Escanea el QR y listo. Eso sí: **puede romperse en cualquier momento** mientras esté en pruebas.
 
@@ -174,8 +140,8 @@ Lo que ya funciona y está en camino al repo estable:
   <a href="https://github.com/riokuroxi-svg/Ginko-MD">
     <img src="https://img.shields.io/badge/🌿%20Repo%20ESTABLE-181717?style=for-the-badge&logo=github&logoColor=white"/>
   </a>
-  <a href="https://github.com/riokuroxi-svg/Lab2experimental">
-    <img src="https://img.shields.io/badge/⚡%20Este%20repo%20(Lab2%20experimental)-181717?style=for-the-badge&logo=github&logoColor=white"/>
+  <a href="https://github.com/riokuroxi-svg/Ginko-MD-Lab">
+    <img src="https://img.shields.io/badge/🧪%20Este%20repo%20(Lab)-181717?style=for-the-badge&logo=github&logoColor=white"/>
   </a>
 </p>
 
