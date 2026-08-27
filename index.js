@@ -5,6 +5,9 @@ import main from '#main';
 import events from '#events';
 import makeWASocket, { Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, jidDecode, DisconnectReason } from 'baileys';
 import { useSQLiteAuthState } from '#lib/sqliteAuth';
+import { ritmoHumano } from '#lib/humanize';
+import { decidirAnteError } from '#lib/processGuard';
+import { startSessionBackup } from '#lib/backupSessions';
 import pino from "pino";
 import qrcode from "qrcode-terminal";
 import chalk from "chalk";
@@ -301,6 +304,10 @@ export async function startBot() {
   // Ver: WhiskeySockets/Baileys issues #1643, #1701, #1571
   const origSendMessage = sock.sendMessage.bind(sock);
   sock.sendMessage = async (jid, content, opts) => {
+    // Ritmo humano SOLO para mensajes visibles (reacciones/deletes son
+    // señales internas rápidas y no deben retrasarse → bot ágil).
+    const esInterno = content?.react || content?.delete
+    if (!esInterno) await ritmoHumano(jid)
     const result = await origSendMessage(jid, content, opts);
     try {
       if (result?.key?.id) {
@@ -436,10 +443,15 @@ cleanCache();
   await cmdsLoader();
   await startBot();
   await loadBots();
+  startSessionBackup(); // respaldo diario de sesiones (rotativo)
 })();
 
 function onUncaughtException(e) {
   log.error(`ERROR → ${e?.stack || e?.message || e}`);
+  if (decidirAnteError() === 'exit') {
+    log.error('⚠️ Demasiados errores seguidos (posible loop) — cerrando para que el supervisor reinicie limpio...');
+    setTimeout(() => process.exit(1), 1500);
+  }
 }
 function onUnhandledRejection(reason) {
   if (reason instanceof SyntaxError) {
@@ -449,6 +461,10 @@ function onUnhandledRejection(reason) {
     return;
   }
   log.error(`RECHAZO → ${reason?.stack || reason?.message || reason}`);
+  if (decidirAnteError() === 'exit') {
+    log.error('⚠️ Demasiados rechazos seguidos (posible loop) — cerrando para que el supervisor reinicie limpio...');
+    setTimeout(() => process.exit(1), 1500);
+  }
 }
 process.on('uncaughtException', onUncaughtException);
 process.on('unhandledRejection', onUnhandledRejection);
