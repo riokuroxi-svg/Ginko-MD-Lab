@@ -18,6 +18,28 @@
 
 </div>
 
+## 🧭 Estado del repositorio y reglas de trabajo
+
+**Rol:** `LABORATORIO INTERMEDIO / PRE-ESTABLE` — zona para validar cambios antes de estable.
+
+**Estado actual:** Valida mejoras con menor riesgo que el estable.
+
+**Reglas:**
+
+- Puede recibir mejoras ya probadas parcialmente.
+- Sirve como filtro antes de Ginko-MD.
+- No debe acumular código muerto, demos rotas ni comandos experimentales inútiles.
+- Los cambios que funcionen aquí pueden migrar quirúrgicamente a estable.
+- Si algo falla aquí, se documenta antes de seguir.
+
+Documentos de control:
+
+- [`docs/GINKO-WORKFLOW.md`](docs/GINKO-WORKFLOW.md)
+- [`docs/GINKO-BLOCKS.md`](docs/GINKO-BLOCKS.md)
+- [`docs/GINKO-URGENT-FIXES.md`](docs/GINKO-URGENT-FIXES.md)
+
+> Regla central: laboratorio primero, estable después. Nada de arrastrar experimentos completos.
+
 ## 🧪 ¿Qué es Ginko-MD-Lab?
 
 <p align="center">
