@@ -14,6 +14,18 @@ import os from 'os';
 
 const exec = promisify(execFile);
 const COVER_PATH = path.join(process.cwd(), 'media', 'audio-cover.jpg');
+let ffmpegDisponible = null;
+
+async function hasFfmpeg() {
+  if (ffmpegDisponible !== null) return ffmpegDisponible;
+  try {
+    await exec('ffmpeg', ['-version'], { timeout: 5000 });
+    ffmpegDisponible = true;
+  } catch {
+    ffmpegDisponible = false;
+  }
+  return ffmpegDisponible;
+}
 
 // Verifica si un buffer es un MP3 válido por magic bytes
 export function isMp3Valid(buf) {
@@ -64,7 +76,7 @@ async function getOptimizedCover() {
  * (descargas locales con yt-dlp). Devuelve null si no valida → el
  * llamador cae a la recodificación completa (seguridad AUD-xxxx intacta).
  */
-async function remuxConPortada(inputBuffer, safeTitle, artista, coverPath) {
+async function remuxConPortada(inputBuffer, safeTitle, artista, coverPath, secondsHint = 0) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ginko-remux-'));
   const inPath = path.join(tmpDir, 'input.mp3');
   const outPath = path.join(tmpDir, 'final.mp3');
@@ -72,7 +84,7 @@ async function remuxConPortada(inputBuffer, safeTitle, artista, coverPath) {
     fs.writeFileSync(inPath, inputBuffer);
     const hasCover = fs.existsSync(coverPath);
 
-    const args = ['-y', '-i', inPath];
+    const args = ['-hide_banner', '-loglevel', 'error', '-y', '-i', inPath];
     if (hasCover) args.push('-i', coverPath);
     args.push('-map', '0:a');
     if (hasCover) {
@@ -96,7 +108,7 @@ async function remuxConPortada(inputBuffer, safeTitle, artista, coverPath) {
     const finalBuf = fs.readFileSync(outPath);
     if (!isMp3Valid(finalBuf)) return null;
 
-    const seconds = await getMp3Duration(outPath);
+    const seconds = secondsHint > 0 ? secondsHint : await getMp3Duration(outPath);
     return { buffer: finalBuf, seconds };
   } catch (e) {
     console.log('[mp3Utils] remux rápido falló:', e.message?.slice(0, 120));
@@ -116,13 +128,9 @@ async function remuxConPortada(inputBuffer, safeTitle, artista, coverPath) {
  *   RECODIFICACIÓN completa con libmp3lame (fix del AUD-xxxx).
  * Devuelve { buffer, seconds }
  */
-export async function processMp3ForWhatsApp(inputBuffer, titulo, artista = 'Ginko Bot', bitrateKbps = 128, origen = 'api') {
-  // Verificar que ffmpeg está disponible
-  try {
-    await exec('ffmpeg', ['-version'], { timeout: 5000 });
-  } catch {
-    return { buffer: inputBuffer, seconds: 0 };
-  }
+export async function processMp3ForWhatsApp(inputBuffer, titulo, artista = 'Ginko Bot', bitrateKbps = 128, origen = 'api', secondsHint = 0) {
+  // Verificar ffmpeg una sola vez por proceso; evita pagar `ffmpeg -version` en cada canción.
+  if (!(await hasFfmpeg())) return { buffer: inputBuffer, seconds: 0 };
 
   const coverPath = await getOptimizedCover();
   const hasCover = fs.existsSync(coverPath);
@@ -130,7 +138,7 @@ export async function processMp3ForWhatsApp(inputBuffer, titulo, artista = 'Gink
 
   // ── Vía rápida: remux para audio local ya limpio ──
   if (origen === 'local') {
-    const rapido = await remuxConPortada(inputBuffer, safeTitle, artista, coverPath);
+    const rapido = await remuxConPortada(inputBuffer, safeTitle, artista, coverPath, secondsHint);
     if (rapido) return rapido;
     console.log('[mp3Utils] remux no válido → recodificación completa de respaldo');
   }
@@ -142,7 +150,7 @@ export async function processMp3ForWhatsApp(inputBuffer, titulo, artista = 'Gink
   try {
     fs.writeFileSync(inPath, inputBuffer);
 
-    const args = ['-y', '-i', inPath];
+    const args = ['-hide_banner', '-loglevel', 'error', '-y', '-i', inPath];
 
     // Agregar la portada como segundo input si existe
     if (hasCover) {
@@ -160,6 +168,7 @@ export async function processMp3ForWhatsApp(inputBuffer, titulo, artista = 'Gink
     args.push(
       '-c:a', 'libmp3lame',
       '-b:a', `${bitrateKbps}k`,
+      '-threads', '0',
       '-ar', '44100',
       '-ac', '2',
       '-id3v2_version', '3',      // ID3v2.3: máxima compatibilidad con Android/iOS/WhatsApp
@@ -204,7 +213,7 @@ export async function processMp3ForWhatsApp(inputBuffer, titulo, artista = 'Gink
     }
 
     // Calcular duración
-    const seconds = await getMp3Duration(outPath);
+    const seconds = secondsHint > 0 ? secondsHint : await getMp3Duration(outPath);
 
     return { buffer: finalBuf, seconds };
   } catch (e) {
@@ -225,10 +234,10 @@ export async function addCustomCoverToMp3(inputBuffer, titulo, artista) {
 export async function downloadAudioYtdlp(url, modo = 'fast', ytdlpPath = 'yt-dlp') {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ginko-dl-'));
   const outTemplate = path.join(tmpDir, 'audio.%(ext)s');
-  let audioQuality = '5'; // ~128k por defecto (modo fast usa 9 = ~96k)
-  if (modo === 'mp3') audioQuality = '0'; // 320k
-  if (modo === 'normal') audioQuality = '5'; // ~128k
-  if (modo === 'fast') audioQuality = '9'; // ~96k (ligero)
+  let audioQuality = '128K'; // estándar MP3 pasable sin inflar demasiado el archivo
+  if (modo === 'mp3') audioQuality = '0'; // máxima del origen cuando se pida modo MP3/HQ
+  if (modo === 'normal') audioQuality = '128K';
+  if (modo === 'fast') audioQuality = '128K';
 
   const args = [
     '-f', 'bestaudio/best',
@@ -261,6 +270,44 @@ export async function downloadAudioYtdlp(url, modo = 'fast', ytdlpPath = 'yt-dlp
     if (!isMp3Valid(buf)) throw new Error('El archivo descargado no es un MP3 válido');
 
     return buf;
+  } finally {
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+  }
+}
+
+
+// Descarga solo la fuente de audio comprimida (m4a/webm) sin convertir.
+// Para .play esto permite hacer UNA sola pasada de ffmpeg después: convertir
+// a MP3 128K + portada/metadatos Ginko, en vez de convertir con yt-dlp y luego
+// volver a remuxear para la portada.
+export async function downloadAudioSourceYtdlp(url, ytdlpPath = 'yt-dlp') {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ginko-src-'));
+  const outTemplate = path.join(tmpDir, 'audio.%(ext)s');
+  const args = [
+    '-f', 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best',
+    '--no-playlist',
+    '--no-warnings',
+    '--no-embed-metadata',
+    '--no-embed-chapters',
+    '--extractor-args', 'youtube:player_client=android,web,web_embedded',
+    '-N', '8',
+    '-o', outTemplate,
+    '--', url
+  ];
+
+  try {
+    await exec(ytdlpPath, args, {
+      timeout: 120000,
+      windowsHide: true,
+      cwd: tmpDir,
+      maxBuffer: 10 * 1024 * 1024
+    });
+    const files = fs.readdirSync(tmpDir).filter((file) => /^audio\.[a-z0-9]+$/i.test(file));
+    if (files.length === 0) throw new Error('No se encontró la fuente de audio descargada');
+    const outputFile = path.join(tmpDir, files[0]);
+    const buf = fs.readFileSync(outputFile);
+    if (!buf || buf.length < 50 * 1024) throw new Error('Fuente de audio demasiado pequeña');
+    return { buffer: buf, ext: path.extname(outputFile).slice(1).toLowerCase() || 'audio' };
   } finally {
     try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
   }

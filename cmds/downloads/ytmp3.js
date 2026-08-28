@@ -1,11 +1,11 @@
-import yts from 'yt-search'
+import yts from '#lib/youtubeSearch'
 import { fastFetch, globalFetchCache, isYtdlpAvailable } from '#lib/fastFetch'
 import fs from 'fs'
 import path from 'path'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
-import { downloadAudioYtdlp, processMp3ForWhatsApp, isMp3Valid } from '#lib/mp3Utils'
-import { adquirir } from '#lib/humanize'
+import crypto from 'crypto'
+import { downloadAudioSourceYtdlp, processMp3ForWhatsApp, isMp3Valid } from '#lib/mp3Utils'
 import { getSelectedResponse } from '#lib/interactive-response'
 
 const exec = promisify(execFile)
@@ -13,18 +13,45 @@ const YTDLP = process.env.YTDLP_PATH || 'yt-dlp'
 
 function dormir(ms) { return new Promise(r => setTimeout(r, ms)) }
 
+const descargasActivas = new Map()
+async function adquirir(clave, max) {
+  const actual = descargasActivas.get(clave) || 0
+  if (actual >= max) {
+    const err = new Error('Semáforo lleno')
+    err.semaforo = true
+    throw err
+  }
+  descargasActivas.set(clave, actual + 1)
+  let liberado = false
+  return () => {
+    if (liberado) return
+    liberado = true
+    const resta = (descargasActivas.get(clave) || 1) - 1
+    if (resta <= 0) descargasActivas.delete(clave)
+    else descargasActivas.set(clave, resta)
+  }
+}
+
 const MAX_REINTENTOS_API = 2
 const ESPERA_BASE_MS = 500
 const PENDING_TTL_MS = 10 * 60 * 1000
 const MAX_MB_AUDIO = 50 * 1024 * 1024
 const MAX_MB_VIDEO = 100 * 1024 * 1024
 const MB = 1024 * 1024
+const AUDIO_CACHE_TTL_MS = 10 * 60 * 1000
+const MAX_AUDIO_CACHE_ENTRIES = 6
+const DISK_AUDIO_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000
+const MAX_DISK_AUDIO_CACHE_BYTES = 350 * MB
+const DISK_AUDIO_CACHE_DIR = path.join(process.cwd(), 'cache', 'play-audio')
 
 const ALIAS_MENU = ['play']
 const ALIAS_AUDIO_DIRECTO = ['mp3', 'ytmp3', 'ytaudio', 'playaudio']
 
 // Cache de ytdlp disponible (chequear solo una vez al iniciar)
 let ytdlpDisponible = null
+let ytdlpUltimaActualizacion = 0
+let ytdlpActualizando = false
+const YTDLP_UPDATE_INTERVAL_MS = 24 * 60 * 60 * 1000
 
 function getPendingMap(sock) {
   if (!sock._ginkoPlayPending) sock._ginkoPlayPending = new Map()
@@ -53,6 +80,14 @@ function sanitizeFilename(name = 'audio') {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 120) || 'audio'
+}
+
+function parseDurationSeconds(label = '') {
+  const parts = String(label || '').trim().split(':').map((part) => Number(part))
+  if (!parts.length || parts.some((part) => !Number.isFinite(part))) return 0
+  if (parts.length === 2) return parts[0] * 60 + parts[1]
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
+  return 0
 }
 
 function esMp4Valido(buf) {
@@ -130,25 +165,171 @@ async function getVideoInfo(input, video_id) {
 // ════════════════════════════════════════════════════════════
 //  DESCARGA LOCAL CON YT-DLP ⚡ INSTANTÁNEO (archivos temporales, sin corrupción)
 // ════════════════════════════════════════════════════════════
-async function descargarAudioYtdlp(url, modo = 'fast') {
-  // Actualizar yt-dlp antes de descargar
-  try {
-    await exec(YTDLP, ['-U', '--update-to', 'nightly'], { timeout: 30000 }).catch(() => {})
-  } catch {}
+function actualizarYtdlpEnSegundoPlano() {
+  if (ytdlpActualizando) return
+  if (Date.now() - ytdlpUltimaActualizacion < YTDLP_UPDATE_INTERVAL_MS) return
+  ytdlpActualizando = true
+  ytdlpUltimaActualizacion = Date.now()
+  exec(YTDLP, ['-U', '--update-to', 'nightly'], { timeout: 30000 })
+    .catch(() => {})
+    .finally(() => { ytdlpActualizando = false })
+}
 
-  let buf
-  try {
-    buf = await downloadAudioYtdlp(url, modo, YTDLP)
-  } catch (e) {
-    await dormir(1000)
+async function descargarAudioFuenteYtdlp(url) {
+  // Ruta rápida para .play: descargar fuente comprimida sin conversión; luego
+  // una sola pasada de ffmpeg la convierte a MP3 128K con portada/metadatos.
+  actualizarYtdlpEnSegundoPlano()
+  const src = await downloadAudioSourceYtdlp(url, YTDLP)
+  return { buffer: src.buffer, origen: 'raw-local', ext: src.ext }
+}
+
+function resumenErrorDescarga(e) {
+  const msg = String(e?.stderr || e?.message || e || '')
+  if (/not a bot|cookies/i.test(msg)) return 'YouTube pidió verificación anti-bot'
+  if (/HTTP 401/i.test(msg)) return 'API HTTP 401'
+  if (/HTTP \d+/i.test(msg)) return msg.match(/HTTP \d+/i)?.[0] || 'HTTP error'
+  return msg.split('\n').find(Boolean)?.slice(0, 120) || 'falló la descarga'
+}
+
+async function descargarAudioSmart(url) {
+  let localError = null
+  if (ytdlpDisponible) {
     try {
-      buf = await downloadAudioYtdlp(url, 'fast', YTDLP)
-    } catch (e2) {
-      throw new Error(e.message || e2.message || 'Error al descargar audio')
+      return await descargarAudioFuenteYtdlp(url)
+    } catch (e) {
+      localError = e
     }
   }
-  if (!buf || !isMp3Valid(buf)) throw new Error('Archivo descargado corrupto')
-  return buf
+  try {
+    const api = await descargarAudioApi(url)
+    return { buffer: api.buffer, origen: 'api', name: api.name }
+  } catch (apiError) {
+    if (localError) throw new Error(`yt-dlp: ${resumenErrorDescarga(localError)} | API: ${resumenErrorDescarga(apiError)}`)
+    throw apiError
+  }
+}
+
+// Cache RAM de audio ya procesado. Esto no hace magia en la primera descarga,
+// pero permite que .play empiece a preparar el MP3 apenas manda la tarjeta:
+// si el usuario toca el botón unos segundos después, ya no espera todo el
+// download+ffmpeg. También acelera canciones repetidas dentro del mismo proceso.
+const audioProcesadoCache = new Map()
+
+function limpiarAudioCache() {
+  const now = Date.now()
+  for (const [key, entry] of audioProcesadoCache) {
+    if (entry.expires <= now) audioProcesadoCache.delete(key)
+  }
+  while (audioProcesadoCache.size > MAX_AUDIO_CACHE_ENTRIES) {
+    audioProcesadoCache.delete(audioProcesadoCache.keys().next().value)
+  }
+}
+
+function audioCacheKey(job = {}) {
+  return job.videoId || getVideoId(job.url) || job.url
+}
+
+function audioDiskCachePaths(job = {}) {
+  const rawKey = audioCacheKey(job)
+  if (!rawKey) return null
+  const key = crypto.createHash('sha1').update(String(rawKey)).digest('hex')
+  return {
+    audio: path.join(DISK_AUDIO_CACHE_DIR, `${key}.mp3`),
+    meta: path.join(DISK_AUDIO_CACHE_DIR, `${key}.json`),
+  }
+}
+
+function leerAudioDiskCache(job = {}) {
+  try {
+    const paths = audioDiskCachePaths(job)
+    if (!paths || !fs.existsSync(paths.audio) || !fs.existsSync(paths.meta)) return null
+    const meta = JSON.parse(fs.readFileSync(paths.meta, 'utf8'))
+    if (!meta?.createdAt || Date.now() - meta.createdAt > DISK_AUDIO_CACHE_TTL_MS) return null
+    const stat = fs.statSync(paths.audio)
+    if (!stat.size || stat.size > MAX_MB_AUDIO) return null
+    const buffer = fs.readFileSync(paths.audio)
+    if (!isMp3Valid(buffer)) return null
+    fs.utimesSync(paths.audio, new Date(), new Date())
+    return { buffer, seconds: Number(meta.seconds || 0), cached: 'disk' }
+  } catch {
+    return null
+  }
+}
+
+function limpiarAudioDiskCache() {
+  try {
+    if (!fs.existsSync(DISK_AUDIO_CACHE_DIR)) return
+    const files = fs.readdirSync(DISK_AUDIO_CACHE_DIR)
+      .filter((name) => name.endsWith('.mp3'))
+      .map((name) => {
+        const file = path.join(DISK_AUDIO_CACHE_DIR, name)
+        const stat = fs.statSync(file)
+        return { file, meta: file.replace(/\.mp3$/, '.json'), size: stat.size, mtimeMs: stat.mtimeMs }
+      })
+      .sort((a, b) => a.mtimeMs - b.mtimeMs)
+    let total = files.reduce((sum, file) => sum + file.size, 0)
+    for (const entry of files) {
+      if (total <= MAX_DISK_AUDIO_CACHE_BYTES) break
+      total -= entry.size
+      try { fs.rmSync(entry.file, { force: true }) } catch {}
+      try { fs.rmSync(entry.meta, { force: true }) } catch {}
+    }
+  } catch {}
+}
+
+function guardarAudioDiskCache(job = {}, result = {}) {
+  try {
+    if (!result?.buffer?.length || result.buffer.length > MAX_MB_AUDIO) return
+    const paths = audioDiskCachePaths(job)
+    if (!paths) return
+    fs.mkdirSync(DISK_AUDIO_CACHE_DIR, { recursive: true })
+    fs.writeFileSync(paths.audio, result.buffer)
+    fs.writeFileSync(paths.meta, JSON.stringify({ createdAt: Date.now(), seconds: result.seconds || 0, title: job.title || 'Audio' }))
+    limpiarAudioDiskCache()
+  } catch (e) {
+  }
+}
+
+async function prepararAudioProcesado(job) {
+  const title = sanitizeFilename(job.title || 'Audio')
+  const cached = leerAudioDiskCache(job)
+  if (cached) {
+    return cached
+  }
+  const audioDescargado = await descargarAudioSmart(job.url)
+  const buffer = audioDescargado.buffer
+  if (buffer.length > MAX_MB_AUDIO) throw new Error('Archivo muy grande (>50MB)')
+  const procesado = await processMp3ForWhatsApp(
+    buffer,
+    title,
+    'Ginko Bot',
+    128,
+    audioDescargado?.origen === 'local' ? 'local' : 'api',
+    parseDurationSeconds(job.duration)
+  )
+  const result = { buffer: procesado.buffer || buffer, seconds: procesado.seconds || 0 }
+  guardarAudioDiskCache(job, result)
+  return result
+}
+
+function obtenerAudioProcesado(job) {
+  limpiarAudioCache()
+  const key = audioCacheKey(job)
+  const cached = key ? audioProcesadoCache.get(key) : null
+  if (cached && cached.expires > Date.now()) return cached.promise
+  const promise = prepararAudioProcesado(job).catch((e) => {
+    if (key) audioProcesadoCache.delete(key)
+    throw e
+  })
+  if (key) audioProcesadoCache.set(key, { promise, expires: Date.now() + AUDIO_CACHE_TTL_MS })
+  return promise
+}
+
+function precalentarAudio(job) {
+  // No esperar aquí: la idea es solapar descarga/procesado con el tiempo que
+  // tarda el usuario en tocar el botón de audio.
+  obtenerAudioProcesado(job).catch((e) => {
+  })
 }
 
 // ════════════════════════════════════════════════════════════
@@ -279,17 +460,12 @@ async function ejecutarDescarga(sock, job, modo, m) {
     liberar = await adquirir('descargas', 2) // máx 2 descargas simultáneas en todo el bot
     let buffer
     if (tipo==='audio') {
-      buffer = ytdlpDisponible ? await descargarAudioYtdlp(job.url,'fast') : (await descargarAudioApi(job.url)).buffer
-      if (buffer.length>MAX_MB_AUDIO) throw new Error('Archivo muy grande (>50MB)')
+      await sock.sendMessage(chat,{react:{text:'🖼️',key:m.key}}).catch(()=>{})
+      const procesado = await obtenerAudioProcesado(job)
+      buffer = procesado.buffer
       if (estadoMsg?.key) try { await sock.sendMessage(chat, {delete:estadoMsg.key}) } catch {}
-      let finalBuf = buffer
-      let segundos = 0
-      try {
-        await sock.sendMessage(chat,{react:{text:'🖼️',key:m.key}})
-        const procesado = await processMp3ForWhatsApp(buffer, sanitizeFilename(job.title), 'Ginko Bot', 128, ytdlpDisponible ? 'local' : 'api')
-        finalBuf = procesado.buffer
-        segundos = procesado.seconds || 0
-      } catch (e) { console.log('[play] Error procesando MP3:', e.message) }
+      const finalBuf = buffer
+      const segundos = procesado.seconds || 0
       const audioPayload = {
         audio: finalBuf,
         mimetype: 'audio/mpeg',
@@ -347,11 +523,12 @@ const cmd = {
         const estado = await sock.sendMessage(msg.chat,{text:`⏳ Descargando audio...${ytdlpDisponible?' ⚡':''}`},{quoted:msg}).catch(()=>null)
         try {
           const [desc, info] = await Promise.allSettled([
-            ytdlpDisponible ? descargarAudioYtdlp(url,'fast') : descargarAudioApi(url).then(r=>r.buffer),
+            descargarAudioSmart(url),
             getVideoInfo(input, videoId)
           ])
           if (desc.status!=='fulfilled') throw desc.reason||new Error('No se pudo descargar')
-          const buffer = desc.value
+          const audioDescargado = desc.value
+          const buffer = audioDescargado.buffer
           const title = info.status==='fulfilled'&&info.value ? info.value.title : 'Audio'
           if (buffer.length>MAX_MB_AUDIO) throw new Error('Muy grande (>50MB)')
           if (estado?.key) try { await sock.sendMessage(msg.chat,{delete:estado.key}) } catch {}
@@ -359,7 +536,7 @@ const cmd = {
           let segundos = 0
           try {
             await sock.sendMessage(msg.chat,{react:{text:'🖼️',key:msg.key}})
-            const procesado = await processMp3ForWhatsApp(buffer, sanitizeFilename(title), 'Ginko Bot', 128, ytdlpDisponible ? 'local' : 'api')
+            const procesado = await processMp3ForWhatsApp(buffer, sanitizeFilename(title), 'Ginko Bot', 128, audioDescargado?.origen || (ytdlpDisponible ? 'local' : 'api'))
             finalBuf = procesado.buffer
             segundos = procesado.seconds || 0
           } catch (e) { console.log('[play] Error procesando MP3:', e.message) }
@@ -397,10 +574,14 @@ const cmd = {
         {buttonId:`${cardToken}_pv`, buttonText:{displayText:'🎬 Video MP4'}, type:1}
       ] : []
       const payload = usarBotones&&thumbnail ? {image:{url:thumbnail},caption,footerText:'❦ Ginko-MD',buttons:botones,headerType:4} : thumbnail ? {image:{url:thumbnail},caption} : {text:caption}
+      const job = {cardId:null, cardKey:null, chat:msg.chat, url, videoId:foundVid, title, channel, duration, views, ago, thumbnail, usandoYtdlp:ytdlpDisponible, _commandKey:msg.key, _createdAt:Date.now(), _procesando:false, _completado:false, _token:cardToken}
+      precalentarAudio(job)
       let card
       try { card = await sock.sendMessage(msg.chat,payload,{quoted:msg}) } catch { card = await sock.sendMessage(msg.chat,thumbnail?{image:{url:thumbnail},caption}:{text:caption},{quoted:msg}).catch(async()=>await sock.sendMessage(msg.chat,{text:caption},{quoted:msg})) }
       if (!card?.key?.id) return msg.reply('❌ No se pudo enviar la tarjeta.')
-      getPendingMap(sock).set(card.key.id, {cardId:card.key.id, cardKey:card.key, chat:msg.chat, url, videoId:foundVid, title, channel, duration, views, ago, thumbnail, usandoYtdlp:ytdlpDisponible, _commandKey:msg.key, _createdAt:Date.now(), _procesando:false, _completado:false, _token:cardToken})
+      job.cardId = card.key.id
+      job.cardKey = card.key
+      getPendingMap(sock).set(card.key.id, job)
       ;(sock._ginkoPlayTokens ??= new Map()).set(cardToken, card.key.id)
       setTimeout(()=>{const p=getPendingMap(sock); const j=p.get(card.key.id); if(j&&!j._procesando&&!j._completado){p.delete(card.key.id); try{sock._ginkoPlayTokens?.delete(j._token)}catch{}}}, PENDING_TTL_MS)
       try { await sock.sendMessage(msg.chat,{react:{text:'✅',key:msg.key}}) } catch {}
