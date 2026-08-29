@@ -10,6 +10,10 @@ global.owner = ['525574370309'];
 
 // Créditos
 global.dev = "🍁 Ginko-MD";
+
+// Marca por defecto para paquetes/stickers (packname/autor).
+// Se usa en vez del antiguo "Yuki Wabot". Cambia aquí y se refleja en todo.
+global.stickerBrand = "🍁 Ginko-MD";
 global.links = {
   channel: "https://whatsapp.com/channel/0029VbDVFpSGJP89hfZUe522",
   channelCode: "0029VbDVFpSGJP89hfZUe522",

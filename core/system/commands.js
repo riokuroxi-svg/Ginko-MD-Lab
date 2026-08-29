@@ -13,6 +13,7 @@ export const bodyMenu = `> 𖧧 ¡Hola *@$sender*! Soy *$namebot*, aquí tienes 
 ‧꒷︶꒷꒥꒷‧₊˚꒷︶꒷꒥꒷︶꒷˚₊‧꒷꒥꒷︶꒷‧`
 
 export const menuObject = {
+
 main: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *PRINCIPAL* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜
 > ✐ Comandos generales para consultar y administrar el bot.
 ꕤ *$prefixmenu » $prefixhelp » $prefixayuda* + <categoría>
@@ -29,6 +30,10 @@ main: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *PRINCIPAL* 𐦯╶͜─ׄ͜
 > Obtener el enlace para invitar el bot.
 ꕤ *$prefixreport » $prefixreporte » $prefixsug » $prefixsuggest* + <texto>
 > Enviar un reporte o sugerencia.
+ꕤ *$prefixhealth » $prefixstatsbot » $prefixsalud*
+> Ver la salud del bot (RAM, uptime, yt-dlp/ffmpeg y errores).
+ꕤ *$prefixcache » $prefixlimpiarcache » $prefixclearcache*
+> Ver y limpiar la caché (temp, yt-dlp, play/mp3).
 ╰ׅ͜─֟͜─͜─ٞ͜─͜─๊͜─͜─๋͜─⃔═̶፝֟͜═̶⃔─๋͜─͜─͜─๊͜─ٞ͜─͜─֟͜┈ࠢ͜╯ׅ`,
 economia: `╭┈ࠢ͜─ׄ֟፝͜─ׄ͜─ׄ͜╴𐔌 *ECONOMY* 𐦯╶͜─ׄ͜─ׄ֟፝͜─ׄ͜─ׄ͜
 > ✐ Comandos de Economía para ganar dinero y divertirte con tus amigos.

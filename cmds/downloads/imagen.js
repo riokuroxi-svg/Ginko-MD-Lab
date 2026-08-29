@@ -1,11 +1,13 @@
 import axios from 'axios';
 import db from '#db';
+import { withLimit } from '#lib/limits';
 
 export default {
   command: ['imagen', 'img', 'image'],
   category: 'downloads',
   description: 'Buscar y descargar imágenes de Google.',
   run: async ({ msg, sock, args, usedPrefix, command }) => {
+    return withLimit('media', 3, async () => {
     const text = args.join(' ');
     if (!text) {
       return sock.reply(msg.chat, `《✧》 Por favor, Ingrese un término de búsqueda.`, msg);
@@ -31,6 +33,7 @@ export default {
     } catch (e) {
       await msg.reply(`> An unexpected error occurred while executing command *${usedPrefix + command}*. Please try again or contact support if the issue persists.\n> [Error: *${e.message}*]`);
     }
+    })
   }
 };
 
@@ -58,7 +61,47 @@ async function filterValidImages(results) {
   return checks.filter(c => c.status === 'fulfilled' && c.value !== null).map(c => c.value);
 }
 
+// ── Fuente PRINCIPAL: Bing Images (local, sin API externa) ─────────────
+// Se scrapea el HTML de Bing Images (sin key). Es robusto y no depende de
+// ningún servicio externo que se caiga. Si por algún motivo Bing falla, se
+// intentan las APIs de respaldo de abajo.
+async function bingImageSearch(query) {
+  const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+  const url = `https://www.bing.com/images/search?q=${encodeURIComponent(query)}&form=HDRSC2&first=1`;
+  const { data } = await axios.get(url, { headers: { 'User-Agent': UA, 'Accept-Language': 'es-ES,es;q=0.9' }, timeout: 15000 });
+  const results = [];
+  const seen = new Set();
+  const re = /class="iusc"[^>]*m="([^"]{20,})"/g;
+  let m;
+  while ((m = re.exec(data))) {
+    let raw = m[1].replace(/&quot;/g, '"').replace(/\\&quot;/g, '"').replace(/\\"/g, '"').replace(/&amp;/g, '&');
+    let j;
+    try { j = JSON.parse(raw); } catch { continue; }
+    if (!j.murl) continue;
+    if (seen.has(j.murl)) continue;
+    seen.add(j.murl);
+    let domain = null;
+    try { domain = new URL(j.murl).hostname; } catch {}
+    results.push({
+      url: j.murl,
+      title: j.t || null,
+      domain,
+      resolution: (j.mw && j.mh) ? `${j.mw}x${j.mh}` : null
+    });
+    if (results.length >= 20) break;
+  }
+  return results;
+}
+
 async function getImageSearchResults(query) {
+  // 1) Bing local
+  try {
+    const bing = await bingImageSearch(query);
+    if (bing && bing.length > 0) return bing;
+  } catch {
+    // cae a las APIs de respaldo
+  }
+  // 2) APIs de respaldo (delirius, lempi/Ginko)
   const apis = [
     { endpoint: `${global.APIs.delirius.url}/search/gimage?query=${encodeURIComponent(query)}`, extractor: (res) => {
         if (!res.status || !Array.isArray(res.data)) return [];
